@@ -1,0 +1,373 @@
+:root {
+  --bg-color: #0d0f14;
+  --bg-gradient: linear-gradient(135deg, #0d0f14 0%, #1a1c23 100%);
+  --panel-bg: rgba(255, 255, 255, 0.05);
+  --panel-border: rgba(255, 255, 255, 0.1);
+  --text-primary: #ffffff;
+  --text-secondary: #94a3b8;
+  --accent-color: #3b82f6;
+  --accent-hover: #2563eb;
+  --danger-color: #ef4444;
+  --danger-hover: #dc2626;
+  --success-color: #10b981;
+  --border-radius-lg: 24px;
+  --border-radius-md: 16px;
+  --border-radius-sm: 12px;
+  --transition-fast: 0.2s ease;
+  --transition-normal: 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --shadow-glow: 0 0 20px rgba(59, 130, 246, 0.2);
+  --shadow-danger: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  background: var(--bg-gradient);
+  background-attachment: fixed;
+  color: var(--text-primary);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Glassmorphism Utilities */
+.glass-panel {
+  background: var(--panel-bg);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+}
+
+.glass-panel-bottom {
+  background: linear-gradient(to top, rgba(13, 15, 20, 0.95), rgba(13, 15, 20, 0.7));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--panel-border);
+}
+
+/* Layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  width: 100%;
+  position: relative;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 20px 24px;
+  z-index: 10;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.logo svg {
+  color: var(--accent-color);
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.4));
+}
+
+.logo h1 {
+  font-size: 20px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+}
+
+.icon-btn {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 50%;
+  transition: var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.icon-btn:hover {
+  color: var(--text-primary);
+  background: var(--panel-bg);
+}
+
+/* Viewport Section */
+.viewport-section {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 0 24px 24px 24px;
+  position: relative;
+  min-height: 0;
+}
+
+.video-container {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--border-radius-lg);
+  overflow: hidden;
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #000;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover; /* Change to contain if you want full frame vs cropped */
+  border-radius: var(--border-radius-lg);
+  /* Apply a slight scale for visual depth */
+  transform: scale(1.01);
+}
+
+/* Hide native controls when inactive */
+video::-webkit-media-controls {
+  opacity: 0.5;
+  transition: opacity 0.3s;
+}
+
+video:hover::-webkit-media-controls {
+  opacity: 1;
+}
+
+.state-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.6);
+  padding: 12px 24px;
+  border-radius: 30px;
+  font-weight: 500;
+  letter-spacing: 0.5px;
+  backdrop-filter: blur(8px);
+  animation: fadeIn 0.3s ease;
+  pointer-events: none;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translate(-50%, -40%); }
+  to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* Recording Indicator */
+.recording-indicator {
+  position: absolute;
+  top: 24px;
+  right: 24px;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(8px);
+  padding: 8px 16px;
+  border-radius: 30px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.red-dot {
+  width: 10px;
+  height: 10px;
+  background-color: var(--danger-color);
+  border-radius: 50%;
+  box-shadow: 0 0 8px var(--danger-color);
+  animation: pulse-dot 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse-dot {
+  0% { transform: scale(0.95); opacity: 0.5; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+  70% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+  100% { transform: scale(0.95); opacity: 0.5; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+}
+
+/* Controls Section */
+.controls-section {
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  position: relative;
+  z-index: 10;
+  border-radius: 32px 32px 0 0;
+}
+
+.device-selectors {
+  display: flex;
+  gap: 16px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.select-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: var(--border-radius-md);
+  padding: 0 16px;
+  transition: var(--transition-fast);
+}
+
+.select-wrapper:focus-within {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.select-wrapper svg {
+  color: var(--text-secondary);
+}
+
+.select-wrapper .drop-icon {
+  font-size: 16px;
+  pointer-events: none;
+}
+
+select {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  padding: 12px 16px 12px 12px;
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+  width: 180px;
+  max-width: 100%;
+  cursor: pointer;
+}
+
+select option {
+  background: var(--bg-color);
+  color: var(--text-primary);
+}
+
+/* Action Buttons */
+.primary-actions {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 32px;
+  height: 80px;
+}
+
+.action-btn {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  color: white;
+}
+
+.action-btn svg {
+  /* Fix vertical alignment */
+  display: flex;
+}
+
+.action-btn.secondary {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(8px);
+}
+
+.action-btn.secondary:hover {
+  background: rgba(255, 255, 255, 0.15);
+  transform: scale(1.05);
+}
+
+.action-btn.primary {
+  background: var(--accent-color);
+  box-shadow: var(--shadow-glow);
+}
+
+.action-btn.primary:hover {
+  background: var(--accent-hover);
+  transform: scale(1.05);
+}
+
+/* Record Button */
+.record-btn {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: transparent;
+  border: 4px solid var(--text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: var(--transition-normal);
+  padding: 0;
+}
+
+.record-btn-inner {
+  width: 54px;
+  height: 54px;
+  background: var(--danger-color);
+  border-radius: 50%;
+  transition: var(--transition-normal);
+  box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}
+
+.record-btn:hover .record-btn-inner {
+  transform: scale(0.9);
+}
+
+/* Recording State */
+.record-btn.recording {
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.record-btn.recording .record-btn-inner {
+  border-radius: 12px;
+  transform: scale(0.6);
+  box-shadow: var(--shadow-danger);
+}
+
+/* Utilities */
+.hidden {
+  display: none !important;
+}
+
+@media (max-width: 600px) {
+  .app-header {
+    padding: 16px;
+  }
+  .viewport-section {
+    padding: 0 16px 16px 16px;
+  }
+  .controls-section {
+    padding: 20px 16px;
+  }
+  .select-wrapper select {
+    width: 130px;
+    font-size: 13px;
+  }
+}

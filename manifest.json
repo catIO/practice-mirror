@@ -1,0 +1,16 @@
+{
+  "name": "Practice Mirror",
+  "short_name": "Mirror",
+  "description": "A PWA that records video and audio for music practice self-evaluation.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0f14",
+  "theme_color": "#0a0a0c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ]
+}
