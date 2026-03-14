@@ -26,6 +26,8 @@ const playbackVideo = document.getElementById('playback-video');
 const cameraSelect = document.getElementById('camera-select');
 const micSelect = document.getElementById('mic-select');
 const recordBtn = document.getElementById('record-btn');
+const recordCountdownEl = document.getElementById('record-countdown');
+let countdownTimeoutIds = [];
 const playBtn = document.getElementById('play-btn');
 const discardBtn = document.getElementById('discard-btn');
 const downloadBtn = document.getElementById('download-btn');
@@ -230,7 +232,7 @@ function setupEventListeners() {
   
   recordBtn.addEventListener('click', () => {
     if (currentState === STATE.IDLE) {
-      startRecording();
+      runCountdownThenStartRecording();
     } else if (currentState === STATE.RECORDING) {
       stopRecording();
     }
@@ -307,6 +309,35 @@ function setupEventListeners() {
   });
 
   youtubeUploadBtn.addEventListener('click', startYoutubeUpload);
+}
+
+function runCountdownThenStartRecording() {
+  if (!mediaStream || !recordCountdownEl) {
+    startRecording();
+    return;
+  }
+  recordBtn.disabled = true;
+  recordCountdownEl.classList.add('visible');
+  recordCountdownEl.textContent = '3';
+  const inner = recordBtn.querySelector('.record-btn-inner');
+  if (inner) inner.style.visibility = 'hidden';
+
+  function show(n, then) {
+    countdownTimeoutIds.push(setTimeout(() => {
+      if (n > 0) {
+        recordCountdownEl.textContent = String(n);
+        show(n - 1, then);
+      } else {
+        recordCountdownEl.classList.remove('visible');
+        recordCountdownEl.textContent = '';
+        if (inner) inner.style.visibility = '';
+        recordBtn.disabled = false;
+        countdownTimeoutIds = [];
+        then();
+      }
+    }, 1000));
+  }
+  show(2, startRecording);
 }
 
 function startRecording() {
