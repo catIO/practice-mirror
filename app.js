@@ -32,7 +32,6 @@ const downloadBtn = document.getElementById('download-btn');
 const youtubeBtn = document.getElementById('youtube-btn');
 const formatSelect = document.getElementById('format-select');
 const resolutionSelect = document.getElementById('resolution-select');
-const beautyToggle = document.getElementById('beauty-toggle');
 const settingsModal = document.getElementById('settings-modal');
 const modalOverlay = document.getElementById('modal-overlay');
 const settingsBtn = document.getElementById('settings-btn');
@@ -101,19 +100,13 @@ async function init() {
     const savedMic = localStorage.getItem('pm-mic-id');
     const savedFormat = localStorage.getItem('pm-format');
     const savedResolution = localStorage.getItem('pm-resolution');
-    const savedBeauty = localStorage.getItem('pm-beauty-filter') === 'true';
 
     // Apply saved dropdown options
     if (savedFormat) formatSelect.value = savedFormat;
     if (savedResolution) resolutionSelect.value = savedResolution;
-    
-    // Apply saved toggle
-    beautyToggle.checked = savedBeauty;
-    if (savedBeauty) {
-      liveVideo.classList.add('beauty-filter');
-    } else {
-      liveVideo.classList.remove('beauty-filter');
-    }
+
+    // Touch up appearance is always on
+    liveVideo.classList.add('beauty-filter');
 
     // Apply saved devices if they exist in the current device list
     if (savedCamera && Array.from(cameraSelect.options).some(opt => opt.value === savedCamera)) {
@@ -223,15 +216,6 @@ function setupEventListeners() {
 
   formatSelect.addEventListener('change', () => {
     localStorage.setItem('pm-format', formatSelect.value);
-  });
-
-  beautyToggle.addEventListener('change', () => {
-    localStorage.setItem('pm-beauty-filter', beautyToggle.checked);
-    if (beautyToggle.checked) {
-      liveVideo.classList.add('beauty-filter');
-    } else {
-      liveVideo.classList.remove('beauty-filter');
-    }
   });
 
   settingsBtn.addEventListener('click', () => {
