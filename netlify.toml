@@ -1,0 +1,10 @@
+# Netlify build: install deps (copies FFmpeg to vendor/), then inject env into app.js
+[build]
+  command = "npm install && npm run build"
+  publish = "."
+
+# Optional: redirect SPA or 404s to index.html if you add client-side routing later
+# [[redirects]]
+#   from = "/*"
+#   to = "/index.html"
+#   status = 200

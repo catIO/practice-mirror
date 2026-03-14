@@ -4,6 +4,12 @@ const STATE = {
   PLAYBACK: 'PLAYBACK'
 };
 
+// Netlify: injected at build from env GOOGLE_CLIENT_ID. Local: set in config.local.js (copy from config.local.example.js).
+const GOOGLE_CLIENT_ID = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '__GOOGLE_CLIENT_ID__';
+
+// YouTube upload: only on local (localhost / 127.0.0.1). Hidden in production until verification is done.
+const YOUTUBE_UPLOAD_ENABLED = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+
 let currentState = STATE.IDLE;
 let mediaStream = null;
 let mediaRecorder = null;
@@ -11,6 +17,8 @@ let recordedChunks = [];
 let recordingStartTime = 0;
 let recordingTimer = null;
 let objectUrl = null;
+let recordedFormat = 'webm'; // actual format from MediaRecorder (may differ from formatSelect)
+let ffmpeg = null;
 
 // DOM Elements
 const liveVideo = document.getElementById('live-video');
@@ -21,6 +29,7 @@ const recordBtn = document.getElementById('record-btn');
 const playBtn = document.getElementById('play-btn');
 const discardBtn = document.getElementById('discard-btn');
 const downloadBtn = document.getElementById('download-btn');
+const youtubeBtn = document.getElementById('youtube-btn');
 const formatSelect = document.getElementById('format-select');
 const resolutionSelect = document.getElementById('resolution-select');
 const beautyToggle = document.getElementById('beauty-toggle');
@@ -34,9 +43,50 @@ const recordingTimeEl = document.getElementById('recording-time');
 const stateOverlay = document.getElementById('state-overlay');
 const stateText = stateOverlay.querySelector('.state-text');
 
+// Editing Tools elements
+const editingTools = document.getElementById('editing-tools');
+const editBtn = document.getElementById('edit-btn');
+const editingPanel = document.getElementById('editing-panel');
+const trimStart = document.getElementById('trim-start');
+const trimEnd = document.getElementById('trim-end');
+const processBtn = document.getElementById('process-btn');
+const youtubeModal = document.getElementById('youtube-modal');
+const closeYoutubeBtn = document.getElementById('close-youtube-btn');
+const youtubeTitleInput = document.getElementById('youtube-title');
+const youtubePrivacySelect = document.getElementById('youtube-privacy');
+const youtubeStatusEl = document.getElementById('youtube-status');
+const youtubeUploadBtn = document.getElementById('youtube-upload-btn');
+
 // Initialize
 async function init() {
   try {
+    // Load FFmpeg (UMD exposes as FFmpegWASM, unpkg sets it)
+    try {
+      const mod = window.FFmpegWASM || window.FFmpeg;
+      const FFmpegClass = mod?.FFmpeg ?? mod;
+      if (FFmpegClass && typeof FFmpegClass === 'function') {
+        ffmpeg = new FFmpegClass();
+        ffmpeg.on('log', ({ message }) => console.log(message));
+        
+        // Don't pass classWorkerURL — the UMD build resolves it against a hardcoded
+        // file:/// base, producing file:///vendor/814.ffmpeg.js which fails.
+        // Instead, serve ffmpeg.js from /vendor/ so e.p = /vendor/ and the worker
+        // auto-resolves to /vendor/814.ffmpeg.js (same-origin classic worker).
+        // Classic workers support importScripts, so coreURL can be a plain URL.
+        const base = location.origin + '/vendor/';
+        const coreURL = base + 'umd/ffmpeg-core.js';
+        const wasmURL = base + 'ffmpeg-core.wasm';
+        
+        console.log("Loading FFmpeg core...");
+        await ffmpeg.load({ coreURL, wasmURL });
+        console.log("FFmpeg loaded successfully");
+      } else {
+        console.error("FFmpeg not found. Expected window.FFmpegWASM or window.FFmpeg");
+      }
+    } catch(err) {
+      console.error('FFmpeg failed to load:', err);
+    }
+
     // Try initial permissions, but don't block layout creation if denied
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
@@ -194,11 +244,6 @@ function setupEventListeners() {
     modalOverlay.classList.add('hidden');
   });
   
-  modalOverlay.addEventListener('click', () => {
-    settingsModal.classList.add('hidden');
-    modalOverlay.classList.add('hidden');
-  });
-  
   recordBtn.addEventListener('click', () => {
     if (currentState === STATE.IDLE) {
       startRecording();
@@ -219,9 +264,7 @@ function setupEventListeners() {
       const a = document.createElement('a');
       a.style.display = 'none';
       a.href = objectUrl;
-      // Use selected format for extension
-      const format = formatSelect.value || 'webm';
-      let ext = format === 'mp4' ? 'mp4' : 'webm';
+      const ext = recordedFormat === 'mp4' ? 'mp4' : 'webm';
       a.download = `practice-recording-${new Date().getTime()}.${ext}`;
       
       document.body.appendChild(a);
@@ -248,13 +291,45 @@ function setupEventListeners() {
   playbackVideo.addEventListener('ended', () => {
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
   });
+
+  processBtn.addEventListener('click', processVideo);
+
+  editBtn.addEventListener('click', () => {
+    const expanded = editBtn.getAttribute('aria-expanded') === 'true';
+    editBtn.setAttribute('aria-expanded', !expanded);
+    editingPanel.hidden = expanded;
+    editingTools.classList.toggle('editing-tools--expanded', !expanded);
+  });
+
+  youtubeBtn.addEventListener('click', () => {
+    if (currentState !== STATE.PLAYBACK || !objectUrl) return;
+    youtubeTitleInput.value = 'Practice recording ' + new Date().toLocaleDateString();
+    youtubeStatusEl.textContent = '';
+    youtubeUploadBtn.textContent = 'Sign in & Upload';
+    youtubeUploadBtn.disabled = false;
+    youtubeModal.classList.remove('hidden');
+    modalOverlay.classList.remove('hidden');
+  });
+
+  closeYoutubeBtn.addEventListener('click', () => {
+    youtubeModal.classList.add('hidden');
+    modalOverlay.classList.add('hidden');
+  });
+
+  modalOverlay.addEventListener('click', () => {
+    settingsModal.classList.add('hidden');
+    youtubeModal.classList.add('hidden');
+    modalOverlay.classList.add('hidden');
+  });
+
+  youtubeUploadBtn.addEventListener('click', startYoutubeUpload);
 }
 
 function startRecording() {
   if (!mediaStream) return;
   recordedChunks = [];
   
-  const selectedFormat = formatSelect.value || 'webm';
+  const selectedFormat = formatSelect.value || 'mp4';
   const options = { mimeType: getSupportedMimeType(selectedFormat) };
   try {
     mediaRecorder = new MediaRecorder(mediaStream, options);
@@ -285,12 +360,24 @@ function stopRecording() {
 }
 
 function switchToPlayback() {
-  const blob = new Blob(recordedChunks, { type: mediaRecorder.mimeType });
+  const mimeType = mediaRecorder.mimeType || '';
+  recordedFormat = mimeType.includes('mp4') ? 'mp4' : 'webm';
+  const blob = new Blob(recordedChunks, { type: mimeType });
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = URL.createObjectURL(blob);
   
   playbackVideo.src = objectUrl;
   playbackVideo.load();
+  
+  // Set trim values to video duration once metadata loads
+  playbackVideo.onloadedmetadata = () => {
+    const dur = playbackVideo.duration;
+    trimStart.value = '0';
+    trimEnd.value = dur.toFixed(1);
+    trimEnd.max = dur;
+    playbackVideo.onloadedmetadata = null;
+  };
+
   setState(STATE.PLAYBACK);
 }
 
@@ -300,6 +387,101 @@ function cleanupPlayback() {
     objectUrl = null;
   }
   playbackVideo.src = '';
+}
+
+async function processVideo() {
+  if (!ffmpeg || !ffmpeg.loaded) {
+    alert("Video editor is still loading or failed. Please refresh and ensure you're online.");
+    return;
+  }
+  
+  processBtn.disabled = true;
+  processBtn.textContent = 'Processing...';
+  
+  try {
+    const videoDuration = playbackVideo.duration;
+    if (!videoDuration || isNaN(videoDuration)) {
+      alert("Please wait for the video to load before processing.");
+      return;
+    }
+    const start = Math.max(0, parseFloat(trimStart.value) || 0);
+    const end = Math.min(videoDuration, parseFloat(trimEnd.value) || videoDuration);
+    const duration = end - start;
+    const addFade = true; // always apply fade in/out
+    
+    if (duration <= 0) {
+      alert("End time must be greater than start time.");
+      return;
+    }
+
+    // Use actual recorded format for input (MediaRecorder may have used webm even if user chose mp4)
+    const inputFormat = recordedFormat;
+    const outputFormat = formatSelect.value || 'mp4';
+    const inputName = `input.${inputFormat}`;
+    const outputName = `output.${outputFormat}`;
+    
+    // Convert objectUrL string back to a valid URL we can fetch
+    const response = await fetch(objectUrl);
+    const videoData = await response.arrayBuffer();
+    
+    await ffmpeg.writeFile(inputName, new Uint8Array(videoData));
+    
+    let ffmpegArgs = [];
+    if (start > 0) {
+       ffmpegArgs.push('-ss', start.toString());
+    }
+    
+    ffmpegArgs.push('-i', inputName);
+    
+    if (end > start) {
+       ffmpegArgs.push('-t', duration.toString());
+    }
+    
+    if (addFade && duration > 2) {
+      // 1-second fade in and out 
+      const fadeOutStart = duration - 1;
+      ffmpegArgs.push('-vf', `fade=t=in:st=0:d=1,fade=t=out:st=${fadeOutStart}:d=1`);
+      ffmpegArgs.push('-af', `afade=t=in:st=0:d=1,afade=t=out:st=${fadeOutStart}:d=1`);
+    }
+    
+    // Maintain decent defaults for re-encoding
+    if (outputFormat === 'mp4') {
+      ffmpegArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28');
+    }
+    
+    ffmpegArgs.push(outputName);
+    
+    const exitCode = await ffmpeg.exec(ffmpegArgs);
+    if (exitCode !== 0) {
+      throw new Error(`FFmpeg exited with code ${exitCode}`);
+    }
+    
+    const outputData = await ffmpeg.readFile(outputName);
+    const processedBlob = new Blob([outputData], { type: `video/${outputFormat === 'mp4' ? 'mp4' : 'webm'}` });
+    
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+    objectUrl = URL.createObjectURL(processedBlob);
+    recordedFormat = outputFormat; // processed video is now the source for further edits
+    playbackVideo.src = objectUrl;
+    playbackVideo.load();
+    playbackVideo.play();
+    
+    // reset trim values to new duration
+    playbackVideo.onloadedmetadata = () => {
+      const dur = playbackVideo.duration;
+      trimStart.value = '0';
+      trimEnd.value = dur.toFixed(1);
+      trimEnd.max = dur;
+      playbackVideo.onloadedmetadata = null;
+    };
+    
+  } catch (err) {
+    console.error("FFmpeg processing failed:", err);
+    alert("Processing failed. " + (err.message || "Check console for details."));
+  } finally {
+    processBtn.disabled = false;
+    processBtn.textContent = 'Process Video';
+  }
 }
 
 // Timer Logic
@@ -319,6 +501,9 @@ function setState(newState) {
   playBtn.classList.add('hidden');
   discardBtn.classList.add('hidden');
   downloadBtn.classList.add('hidden');
+  youtubeBtn.classList.add('hidden');
+  editBtn.classList.add('hidden');
+  editingTools.classList.add('hidden');
   liveVideo.classList.add('hidden');
   playbackVideo.classList.add('hidden');
   recordingIndicator.classList.add('hidden');
@@ -347,6 +532,12 @@ function setState(newState) {
     playBtn.classList.remove('hidden');
     discardBtn.classList.remove('hidden');
     downloadBtn.classList.remove('hidden');
+    if (YOUTUBE_UPLOAD_ENABLED) youtubeBtn.classList.remove('hidden');
+    editBtn.classList.remove('hidden');
+    editingTools.classList.remove('hidden');
+    editBtn.setAttribute('aria-expanded', 'false');
+    editingPanel.hidden = true;
+    editingTools.classList.remove('editing-tools--expanded');
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
     clearInterval(recordingTimer);
   }
@@ -362,7 +553,77 @@ function showOverlay(text, persistent = false) {
   }
 }
 
-function getSupportedMimeType(preferredFormat = 'webm') {
+// --- YouTube upload ---
+function startYoutubeUpload() {
+  if (!objectUrl) {
+    youtubeStatusEl.textContent = 'No video to upload.';
+    return;
+  }
+  if (!GOOGLE_CLIENT_ID) {
+    youtubeStatusEl.textContent = 'YouTube upload is not configured. Add your Google Client ID in app.js.';
+    return;
+  }
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+    youtubeStatusEl.textContent = 'Google sign-in is loading. Try again in a moment.';
+    return;
+  }
+  const title = (youtubeTitleInput.value || 'Practice recording').trim();
+  const privacy = youtubePrivacySelect.value;
+  youtubeUploadBtn.disabled = true;
+  youtubeStatusEl.textContent = 'Opening sign-in…';
+
+  // Request token immediately (no await) so the popup opens in response to the click and isn't blocked
+  const client = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'https://www.googleapis.com/auth/youtube.upload',
+    callback: async (tokenResponse) => {
+      try {
+        youtubeStatusEl.textContent = 'Preparing video…';
+        const res = await fetch(objectUrl);
+        const blob = await res.blob();
+        const mimeType = recordedFormat === 'mp4' ? 'video/mp4' : 'video/webm';
+        youtubeStatusEl.textContent = 'Uploading…';
+        await uploadVideoToYouTube(tokenResponse.access_token, blob, mimeType, title, privacy);
+        youtubeStatusEl.textContent = 'Upload complete. Check your YouTube studio.';
+        youtubeUploadBtn.textContent = 'Upload another';
+      } catch (err) {
+        console.error('YouTube upload failed:', err);
+        youtubeStatusEl.textContent = 'Upload failed: ' + (err.message || 'Unknown error');
+      } finally {
+        youtubeUploadBtn.disabled = false;
+      }
+    }
+  });
+  client.requestAccessToken();
+}
+
+async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyStatus) {
+  // Use same-origin proxy to avoid CORS (YouTube API blocks direct browser uploads).
+  const proxyUrl = '/api/youtube-upload';
+  const res = await fetch(proxyUrl, {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Bearer ' + accessToken,
+      'Content-Type': mimeType,
+      'X-Title': title,
+      'X-Privacy': privacyStatus
+    },
+    body: blob
+  });
+  if (!res.ok) {
+    const errBody = await res.text();
+    let msg = errBody || 'Upload failed';
+    try {
+      const j = JSON.parse(errBody);
+      if (j.error != null) {
+        msg = typeof j.error === 'string' ? j.error : (j.error.message || JSON.stringify(j.error));
+      }
+    } catch (_) {}
+    throw new Error(msg);
+  }
+}
+
+function getSupportedMimeType(preferredFormat = 'mp4') {
   let types = [];
   if (preferredFormat === 'mp4') {
     types = [

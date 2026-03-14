@@ -7,6 +7,8 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Practice Mirror</title>
   
   <!-- Offline First: System Fonts & Inline SVGs used instead of external assets -->
@@ -16,7 +18,7 @@
   <div class="app-container">
     <header class="app-header">
       <div class="logo">
-        <svg width="24" height="24" fill="none" stroke="var(--accent-color)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M458.15-603.59h313.07q-28.44-67.08-81.9-114.43-53.47-47.35-124.75-67.35L458.15-603.59Zm-96.3 79.52L518.5-793.85q-9.57-1.52-19.25-2.4-9.68-.88-19.25-.88-65.76 0-122.4 25t-100.17 66.76l104.42 181.3ZM172.87-400H383.7L227.28-670.02q-30.56 40.52-47.49 87.99-16.92 47.46-16.92 102.03 0 20.04 2.74 40.86 2.74 20.81 7.26 39.14Zm222.56 225.37 104.42-181.78H188.78q27 66.37 81.19 114.07 54.18 47.71 125.46 67.71ZM480-162.87q66 0 122.28-24.88 56.29-24.88 100.29-66.88L597.91-436.65 441.5-166.15q9.57 1.52 18.75 2.4 9.18.88 19.75.88Zm252.72-127.11q29.85-38.85 47.13-86.91 17.28-48.07 17.28-103.11 0-21-2.5-40.74-2.5-19.74-7.5-39.26H576.3l156.42 270.02ZM480-480Zm0 408.13q-83.67 0-158.11-32.22-74.43-32.21-130.01-87.79-55.58-55.58-87.79-130.01Q71.87-396.33 71.87-480q0-84.43 32.22-158.49 32.21-74.05 87.79-129.63 55.58-55.58 130.01-87.79 74.44-32.22 158.11-32.22 84.43 0 158.49 32.22 74.05 32.21 129.63 87.79 55.58 55.58 87.79 129.63 32.22 74.06 32.22 158.49 0 83.67-32.22 158.11-32.21 74.43-87.79 130.01-55.58 55.58-129.63 87.79Q564.43-71.87 480-71.87Z"/></svg>
         <h1>Practice Mirror</h1>
       </div>
       <button id="settings-btn" class="icon-btn" aria-label="Settings">
@@ -62,6 +64,40 @@
         <button id="download-btn" class="action-btn secondary hidden" aria-label="Download Recording">
           <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         </button>
+        
+        <!-- YouTube Post Button -->
+        <button id="youtube-btn" class="action-btn secondary hidden" aria-label="Post to YouTube">
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M21.582 6.186a2.632 2.632 0 0 0-1.85-1.85C18.096 3.895 12 3.895 12 3.895s-6.096 0-7.732.441a2.632 2.632 0 0 0-1.85 1.85C2.08 7.822 2.08 12 2.08 12s0 4.178.338 5.814a2.632 2.632 0 0 0 1.85 1.85c1.636.441 7.732.441 7.732.441s6.096 0 7.732-.441a2.632 2.632 0 0 0 1.85-1.85c.338-1.636.338-5.814.338-5.814s0-4.178-.338-5.814zM9.997 15.542v-7.084l6.216 3.542z"/></svg>
+        </button>
+
+        <!-- Edit video (trim/process) — icon opens panel below -->
+        <button type="button" id="edit-btn" class="action-btn secondary hidden" aria-label="Edit video" aria-expanded="false" aria-controls="editing-panel">
+          <svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" viewBox="0 -960 960 960" fill="currentColor"><path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/></svg>
+        </button>
+      </div>
+      
+      <!-- Edit panel (trim + Process), toggled by edit icon -->
+      <div id="editing-tools" class="editing-tools hidden" aria-hidden="true">
+        <div id="editing-panel" class="editing-panel" hidden>
+          <div class="editing-card">
+            <div class="editing-card-body">
+              <div class="mdc-field-group">
+                <span class="mdc-label">Trim</span>
+                <div class="mdc-trim-row">
+                  <div class="mdc-text-field mdc-text-field--outlined">
+                    <label class="mdc-floating-label" for="trim-start">Start</label>
+                    <input type="number" id="trim-start" class="mdc-input" value="0" step="0.1" min="0" inputmode="decimal" title="Seconds (e.g. 1.5)">
+                  </div>
+                  <div class="mdc-text-field mdc-text-field--outlined">
+                    <label class="mdc-floating-label" for="trim-end">End</label>
+                    <input type="number" id="trim-end" class="mdc-input" value="0" step="0.1" min="0" placeholder="—" inputmode="decimal" title="Seconds (e.g. 1.5)">
+                  </div>
+                </div>
+              </div>
+              <button id="process-btn" class="mdc-button mdc-button--filled">Process</button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
     
@@ -109,11 +145,12 @@
           </div>
           <div class="setting-group">
             <label for="format-select">Video Format</label>
+            <p class="setting-hint">Output when you use Edit → Process. MP4 works everywhere (phones, social, editors). WebM is smaller and open; some apps don’t support it.</p>
             <div class="select-wrapper">
               <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
               <select id="format-select" aria-label="Select Download Format">
-                <option value="webm">WebM (Default)</option>
-                <option value="mp4">MP4</option>
+                <option value="mp4">MP4 (Default)</option>
+                <option value="webm">WebM</option>
               </select>
               <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
             </div>
@@ -128,8 +165,49 @@
         </div>
       </div>
     </div>
+
+    <!-- YouTube Upload Modal -->
+    <div class="youtube-modal hidden glass-panel" id="youtube-modal">
+      <div class="settings-header">
+        <h2>Post to YouTube</h2>
+        <button id="close-youtube-btn" class="icon-btn" aria-label="Close">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="settings-content">
+        <div class="setting-group">
+          <label for="youtube-title">Title</label>
+          <input type="text" id="youtube-title" class="youtube-input" placeholder="Practice recording" maxlength="100">
+        </div>
+        <div class="setting-group">
+          <label for="youtube-privacy">Privacy</label>
+          <div class="select-wrapper">
+            <select id="youtube-privacy" aria-label="Privacy">
+              <option value="private">Private</option>
+              <option value="unlisted">Unlisted</option>
+              <option value="public">Public</option>
+            </select>
+            <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+        <p id="youtube-status" class="youtube-status"></p>
+        <div class="settings-actions">
+          <button id="youtube-upload-btn" class="mdc-button mdc-button--filled">Sign in &amp; Upload</button>
+        </div>
+      </div>
+    </div>
   </div>
 
+  <!-- FFmpeg self-hosted: e.p resolves worker to same-origin /vendor/814.ffmpeg.js -->
+  <script src="/vendor/ffmpeg.js"></script>
+  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+  
+  <!-- Google APIs -->
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+  <script src="https://apis.google.com/js/api.js"></script>
+
+  <!-- Optional: for local dev, create config.local.js (see config.local.example.js) -->
+  <script src="/config.local.js"></script>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

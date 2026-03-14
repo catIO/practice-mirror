@@ -1,0 +1,17 @@
+{
+  "name": "practice-mirror",
+  "version": "1.0.0",
+  "scripts": {
+    "postinstall": "node scripts/copy-ffmpeg.js",
+    "build": "node scripts/inject-env.js",
+    "start": "node server.js",
+    "icons": "node generate-icons-sharp.js"
+  },
+  "dependencies": {
+    "@ffmpeg/core": "0.12.6",
+    "@ffmpeg/ffmpeg": "0.12.10"
+  },
+  "devDependencies": {
+    "sharp": "^0.33.5"
+  }
+}

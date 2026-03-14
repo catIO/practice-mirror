@@ -1,0 +1,8 @@
+node_modules
+.git
+*.md
+.env
+.env.*
+config.local.js
+scripts/copy-ffmpeg.js
+scripts/inject-env.js

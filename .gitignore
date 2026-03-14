@@ -1,5 +1,7 @@
 node_modules/
+vendor/
 .DS_Store
 dist/
 coverage/
 .env
+config.local.js
