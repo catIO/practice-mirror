@@ -27,10 +27,13 @@
     </header>
 
     <main class="viewport-section">
-      <div class="video-container glass-panel">
+      <div id="video-container" class="video-container glass-panel">
         <video id="live-video" autoplay playsinline muted></video>
         <video id="playback-video" playsinline controls class="hidden"></video>
-        
+        <div id="preview-off-placeholder" class="preview-off-placeholder hidden">
+          <p class="preview-off-message">Camera and mic are off</p>
+          <button type="button" id="preview-on-btn" class="mdc-button mdc-button--filled">Start preview</button>
+        </div>
         <div id="recording-indicator" class="recording-indicator hidden">
           <div class="red-dot"></div>
           <span id="recording-time">00:00</span>
@@ -40,6 +43,9 @@
           <!-- Text to guide user -->
           <span class="state-text">Ready to Practice</span>
         </div>
+        <button type="button" id="preview-off-hover-btn" class="preview-off-hover-overlay hidden" aria-label="Pause preview">
+          Pause Preview
+        </button>
       </div>
     </main>
 

@@ -34,6 +34,10 @@ const downloadBtn = document.getElementById('download-btn');
 const youtubeBtn = document.getElementById('youtube-btn');
 const formatSelect = document.getElementById('format-select');
 const resolutionSelect = document.getElementById('resolution-select');
+const videoContainer = document.getElementById('video-container');
+const previewOffHoverBtn = document.getElementById('preview-off-hover-btn');
+const previewPlaceholder = document.getElementById('preview-off-placeholder');
+const previewOnBtn = document.getElementById('preview-on-btn');
 const settingsModal = document.getElementById('settings-modal');
 const modalOverlay = document.getElementById('modal-overlay');
 const settingsBtn = document.getElementById('settings-btn');
@@ -123,6 +127,7 @@ async function init() {
       await startCamera();
     } else {
       setState(STATE.IDLE);
+      updatePreviewUI();
     }
     
     // Listen for device changes (e.g., plugging in a new mic)
@@ -150,6 +155,49 @@ async function populateDeviceSelectors() {
 
   cameraSelect.innerHTML = createOptions(videoInput, 'No Camera Found');
   micSelect.innerHTML = createOptions(audioInput, 'No Mic Found');
+}
+
+function stopPreview() {
+  if (currentState !== STATE.IDLE || !mediaStream) return;
+  // Release video element first so the browser can release the device immediately
+  liveVideo.srcObject = null;
+  mediaStream.getTracks().forEach(track => track.stop());
+  mediaStream = null;
+  updatePreviewUI();
+}
+
+function updatePreviewUI() {
+  const hasPreview = !!mediaStream;
+  const isIdle = currentState === STATE.IDLE;
+  if (videoContainer) {
+    if (isIdle && hasPreview) {
+      videoContainer.classList.add('preview-active');
+    } else {
+      videoContainer.classList.remove('preview-active');
+    }
+  }
+  if (previewOffHoverBtn) {
+    if (isIdle && hasPreview) {
+      previewOffHoverBtn.classList.remove('hidden');
+    } else {
+      previewOffHoverBtn.classList.add('hidden');
+    }
+  }
+  if (previewPlaceholder) {
+    if (isIdle && !hasPreview) {
+      previewPlaceholder.classList.remove('hidden');
+    } else {
+      previewPlaceholder.classList.add('hidden');
+    }
+  }
+  if (recordBtn) {
+    recordBtn.disabled = isIdle && !hasPreview;
+  }
+  if (isIdle && hasPreview) {
+    liveVideo.classList.remove('hidden');
+  } else if (isIdle && !hasPreview) {
+    liveVideo.classList.add('hidden');
+  }
 }
 
 async function startCamera() {
@@ -195,6 +243,7 @@ async function startCamera() {
     liveVideo.srcObject = mediaStream;
     liveVideo.muted = true; // Avoid feedback loop
     setState(STATE.IDLE);
+    updatePreviewUI();
   } catch (err) {
     console.error('Error starting camera with constraints:', constraints, err);
   }
@@ -219,6 +268,9 @@ function setupEventListeners() {
   formatSelect.addEventListener('change', () => {
     localStorage.setItem('pm-format', formatSelect.value);
   });
+
+  previewOffHoverBtn.addEventListener('click', stopPreview);
+  previewOnBtn.addEventListener('click', () => startCamera());
 
   settingsBtn.addEventListener('click', () => {
     settingsModal.classList.remove('hidden');
@@ -525,12 +577,12 @@ function setState(newState) {
   stateOverlay.classList.add('hidden');
   
   if (newState === STATE.IDLE) {
-    liveVideo.classList.remove('hidden');
     recordBtn.classList.remove('hidden');
     recordBtn.classList.remove('recording');
     clearInterval(recordingTimer);
     recordingTimeEl.textContent = '00:00';
     showOverlay('Ready to Practice');
+    updatePreviewUI();
     
   } else if (newState === STATE.RECORDING) {
     liveVideo.classList.remove('hidden');
@@ -561,9 +613,11 @@ function setState(newState) {
 function showOverlay(text, persistent = false) {
   stateText.textContent = text;
   stateOverlay.classList.remove('hidden');
+  if (videoContainer) videoContainer.classList.remove('ready-dismissed');
   if (!persistent) {
     setTimeout(() => {
       stateOverlay.classList.add('hidden');
+      if (videoContainer) videoContainer.classList.add('ready-dismissed');
     }, 2000);
   }
 }
