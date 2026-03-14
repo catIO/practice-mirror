@@ -42,23 +42,6 @@
     </main>
 
     <div class="controls-section glass-panel-bottom">
-      <div class="device-selectors hidden" id="device-selectors">
-        <div class="select-wrapper">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
-          <select id="camera-select" aria-label="Select Camera">
-            <option value="">Loading cameras...</option>
-          </select>
-          <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-        <div class="select-wrapper">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
-          <select id="mic-select" aria-label="Select Microphone">
-            <option value="">Loading mics...</option>
-          </select>
-          <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
-        </div>
-      </div>
-
       <div class="primary-actions">
         <!-- Revert / Delete Button -->
         <button id="discard-btn" class="action-btn secondary hidden" aria-label="Discard recording">
@@ -74,6 +57,75 @@
         <button id="play-btn" class="action-btn primary hidden" aria-label="Play Recording">
           <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
         </button>
+
+        <!-- Download Button -->
+        <button id="download-btn" class="action-btn secondary hidden" aria-label="Download Recording">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </button>
+      </div>
+    </div>
+    
+    <!-- Modal Overlay and Settings Modal at app level to prevent cut off -->
+    <div class="modal-overlay hidden" id="modal-overlay"></div>
+    <div class="settings-modal hidden glass-panel" id="settings-modal">
+      <div class="settings-header">
+        <h2>Settings</h2>
+        <button id="close-settings-btn" class="icon-btn" aria-label="Close Settings">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="settings-content">
+        <div class="device-selectors" id="device-selectors">
+          <div class="setting-group">
+            <label for="camera-select">Camera</label>
+            <div class="select-wrapper">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <select id="camera-select" aria-label="Select Camera">
+                <option value="">Loading cameras...</option>
+              </select>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+          </div>
+          <div class="setting-group">
+            <label for="mic-select">Microphone</label>
+            <div class="select-wrapper">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+              <select id="mic-select" aria-label="Select Microphone">
+                <option value="">Loading mics...</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-group">
+            <label for="resolution-select">Recording Resolution</label>
+            <div class="select-wrapper">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+              <select id="resolution-select" aria-label="Select Video Resolution">
+                <option value="720">720p (HD)</option>
+                <option value="1080" selected>1080p (Full HD)</option>
+                <option value="2160">2160p (4K)</option>
+              </select>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+          </div>
+          <div class="setting-group">
+            <label for="format-select">Video Format</label>
+            <div class="select-wrapper">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              <select id="format-select" aria-label="Select Download Format">
+                <option value="webm">WebM (Default)</option>
+                <option value="mp4">MP4</option>
+              </select>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+          </div>
+          <div class="setting-group toggle-group">
+            <label for="beauty-toggle">Touch up my appearance</label>
+            <label class="switch">
+              <input type="checkbox" id="beauty-toggle">
+              <span class="slider round"></span>
+            </label>
+          </div>
+        </div>
       </div>
     </div>
   </div>
