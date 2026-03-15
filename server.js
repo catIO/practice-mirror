@@ -110,7 +110,11 @@ function serveFile(filePath, res) {
         res.end('Sorry, error: ' + error.code + '\n');
       }
     } else {
-      res.writeHead(200, { 'Content-Type': contentType });
+      res.writeHead(200, { 
+        'Content-Type': contentType,
+        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Embedder-Policy': 'require-corp'
+      });
       res.end(content, extname === '.html' || extname === '.css' || extname === '.js' ? 'utf-8' : undefined);
     }
   });

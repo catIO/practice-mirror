@@ -1,10 +1,14 @@
-const CACHE_NAME = 'practice-mirror-v25';
+const CACHE_NAME = 'practice-mirror-v26';
 const ASSETS = [
   '/',
   '/index.html',
   '/style.css',
   '/app.js',
-  '/manifest.json'
+  '/manifest.json',
+  '/vendor/ffmpeg.js',
+  '/vendor/ffmpeg-core.wasm',
+  '/vendor/umd/ffmpeg-core.js',
+  '/vendor/814.ffmpeg.js'
 ];
 
 self.addEventListener('install', (e) => {
