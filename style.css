@@ -1,9 +1,9 @@
 :root {
-  --bg-color: #0d0f14;
-  --bg-gradient: linear-gradient(135deg, #0d0f14 0%, #1a1c23 100%);
-  --panel-bg: rgba(255, 255, 255, 0.05);
-  --panel-border: rgba(255, 255, 255, 0.1);
-  --text-primary: #ffffff;
+  --bg-color: #1a1c23;
+  --bg-gradient: linear-gradient(135deg, #16181d 0%, #1a1c23 100%);
+  --panel-bg: rgba(255, 255, 255, 0.08);
+  --panel-border: rgba(255, 255, 255, 0.12);
+  --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --accent-color: #3b82f6;
   --accent-hover: #2563eb;
@@ -47,10 +47,9 @@ body {
 }
 
 .glass-panel-bottom {
-  background: linear-gradient(to top, rgba(13, 15, 20, 0.95), rgba(13, 15, 20, 0.7));
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid var(--panel-border);
+  background: #252830;
+  border: 1px solid var(--panel-border);
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
 }
 
 /* Layout */
@@ -128,7 +127,7 @@ body {
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #000;
+  background: var(--bg-color);
 }
 
 /* Preview off placeholder — camera/mic stopped to save resources */
@@ -210,12 +209,13 @@ video:hover::-webkit-media-controls {
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.2s ease;
+  visibility: hidden;
 }
 
-/* Only show "Turn off camera" on hover after "Ready to Practice" has faded out */
 .video-container.preview-active.ready-dismissed:hover .preview-off-hover-overlay {
   opacity: 1;
   pointer-events: auto;
+  visibility: visible;
 }
 
 .preview-off-hover-overlay:hover {
@@ -267,7 +267,9 @@ video:hover::-webkit-media-controls {
   gap: 20px;
   position: relative;
   z-index: 10;
-  border-radius: 32px 32px 0 0;
+  border-radius: var(--border-radius-lg);
+  width: calc(100% - 48px);
+  margin: 0 auto 24px auto;
 }
 
 .device-selectors {

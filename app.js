@@ -17,7 +17,6 @@ let recordedChunks = [];
 let recordingStartTime = 0;
 let recordingTimer = null;
 let objectUrl = null;
-let currentBlob = null; 
 let recordedFormat = 'webm'; // actual format from MediaRecorder (may differ from formatSelect)
 let ffmpeg = null;
 
@@ -33,7 +32,6 @@ const playBtn = document.getElementById('play-btn');
 const discardBtn = document.getElementById('discard-btn');
 const downloadBtn = document.getElementById('download-btn');
 const youtubeBtn = document.getElementById('youtube-btn');
-const shareBtn = document.getElementById('share-btn');
 const formatSelect = document.getElementById('format-select');
 const resolutionSelect = document.getElementById('resolution-select');
 const videoContainer = document.getElementById('video-container');
@@ -363,8 +361,6 @@ function setupEventListeners() {
   });
 
   youtubeUploadBtn.addEventListener('click', startYoutubeUpload);
-
-  shareBtn.addEventListener('click', shareVideo);
 }
 
 function runCountdownThenStartRecording() {
@@ -433,9 +429,9 @@ function stopRecording() {
 function switchToPlayback() {
   const mimeType = mediaRecorder.mimeType || '';
   recordedFormat = mimeType.includes('mp4') ? 'mp4' : 'webm';
-  currentBlob = new Blob(recordedChunks, { type: mimeType });
+  const blob = new Blob(recordedChunks, { type: mimeType });
   if (objectUrl) URL.revokeObjectURL(objectUrl);
-  objectUrl = URL.createObjectURL(currentBlob);
+  objectUrl = URL.createObjectURL(blob);
   
   playbackVideo.src = objectUrl;
   playbackVideo.load();
@@ -528,10 +524,10 @@ async function processVideo() {
     }
     
     const outputData = await ffmpeg.readFile(outputName);
-    currentBlob = new Blob([outputData], { type: `video/${outputFormat === 'mp4' ? 'mp4' : 'webm'}` });
+    const processedBlob = new Blob([outputData], { type: `video/${outputFormat === 'mp4' ? 'mp4' : 'webm'}` });
     
     if (objectUrl) URL.revokeObjectURL(objectUrl);
-    objectUrl = URL.createObjectURL(currentBlob);
+    objectUrl = URL.createObjectURL(processedBlob);
     recordedFormat = outputFormat; // processed video is now the source for further edits
     playbackVideo.src = objectUrl;
     playbackVideo.load();
@@ -573,7 +569,6 @@ function setState(newState) {
   discardBtn.classList.add('hidden');
   downloadBtn.classList.add('hidden');
   youtubeBtn.classList.add('hidden');
-  shareBtn.classList.add('hidden');
   editBtn.classList.add('hidden');
   editingTools.classList.add('hidden');
   liveVideo.classList.add('hidden');
@@ -605,7 +600,6 @@ function setState(newState) {
     discardBtn.classList.remove('hidden');
     downloadBtn.classList.remove('hidden');
     if (YOUTUBE_UPLOAD_ENABLED) youtubeBtn.classList.remove('hidden');
-    if (navigator.share) shareBtn.classList.remove('hidden');
     editBtn.classList.remove('hidden');
     editingTools.classList.remove('hidden');
     editBtn.setAttribute('aria-expanded', 'false');
@@ -614,6 +608,9 @@ function setState(newState) {
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
     clearInterval(recordingTimer);
   }
+  
+  // Ensure preview UI (like 'Pause Preview' button) updates for all states
+  updatePreviewUI();
 }
 
 function showOverlay(text, persistent = false) {
@@ -628,30 +625,6 @@ function showOverlay(text, persistent = false) {
   }
 }
 
-async function shareVideo() {
-  if (!currentBlob) return;
-  
-  const ext = recordedFormat === 'mp4' ? 'mp4' : 'webm';
-  const file = new File([currentBlob], `practice-video-${Date.now()}.${ext}`, { 
-    type: currentBlob.type 
-  });
-
-  try {
-    if (navigator.canShare && navigator.canShare({ files: [file] })) {
-      await navigator.share({
-        files: [file],
-        title: 'My Practice Recording',
-        text: 'Self-evaluation recording from Practice Mirror'
-      });
-    } else {
-      alert("Sharing is not supported for this file type or in this browser.");
-    }
-  } catch (err) {
-    if (err.name !== 'AbortError') {
-      console.error('Sharing failed:', err);
-    }
-  }
-}
 
 // --- YouTube upload ---
 function startYoutubeUpload() {
