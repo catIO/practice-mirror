@@ -3,6 +3,14 @@
   publish = "."
   functions = "functions"
 
+[functions]
+  node_bundler = "nft"
+
+[[functions]]
+  path = "/youtube-upload"
+  included_files = []
+  timeout = 26
+
 [[redirects]]
   from = "/api/youtube-upload"
   to = "/.netlify/functions/youtube-upload"
