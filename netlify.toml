@@ -1,10 +1,9 @@
-# Netlify build: install deps (copies FFmpeg to vendor/), then inject env into app.js
 [build]
   command = "npm install && npm run build"
   publish = "."
+  functions = "netlify/functions"
 
-# Optional: redirect SPA or 404s to index.html if you add client-side routing later
-# [[redirects]]
-#   from = "/*"
-#   to = "/index.html"
-#   status = 200
+[[redirects]]
+  from = "/api/youtube-upload"
+  to = "/.netlify/functions/youtube-upload"
+  status = 200
