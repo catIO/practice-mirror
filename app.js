@@ -699,7 +699,7 @@ async function startYoutubeUpload() {
       youtubeStatusEl.textContent = 'Your session expired. Please sign in again from Settings.';
     } else {
       youtubeStatusEl.className = 'youtube-status youtube-status--error';
-      youtubeStatusEl.textContent = 'Upload failed. Check the browser console for details.';
+      youtubeStatusEl.textContent = 'Upload failed. Please try again.';
     }
   } finally {
     youtubeUploadBtn.disabled = false;
@@ -911,7 +911,7 @@ function initGoogleLogin() {
     callback: handleTokenResponse,
     error_callback: (err) => {
       console.error('Auth error:', err);
-      showOverlay('Authentication failed. Check console.');
+      showOverlay('Authentication failed. Please try again.');
     }
   });
 }
