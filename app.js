@@ -19,6 +19,8 @@ let recordingTimer = null;
 let objectUrl = null;
 let recordedFormat = 'webm'; // actual format from MediaRecorder (may differ from formatSelect)
 let ffmpeg = null;
+let userProfile = null; // Stores { name, email, picture }
+let accessToken = null; // Stores the active token for YouTube uploads
 
 // DOM Elements
 const liveVideo = document.getElementById('live-video');
@@ -61,6 +63,13 @@ const youtubeTitleInput = document.getElementById('youtube-title');
 const youtubePrivacySelect = document.getElementById('youtube-privacy');
 const youtubeStatusEl = document.getElementById('youtube-status');
 const youtubeUploadBtn = document.getElementById('youtube-upload-btn');
+const authUnlogged = document.getElementById('auth-unlogged');
+const authLogged = document.getElementById('auth-logged');
+const userPhoto = document.getElementById('user-photo');
+const userName = document.getElementById('user-name');
+const userEmail = document.getElementById('user-email');
+const signoutBtn = document.getElementById('signout-btn');
+const customSigninBtn = document.getElementById('google-signin-custom');
 
 // Initialize
 async function init() {
@@ -136,17 +145,17 @@ async function init() {
     });
 
     setupEventListeners();
-  } catch (err) {
-    console.error('Error initializing media devices:', err);
-    showOverlay('Camera/Mic access denied. Please allow permissions.', true);
-  }
-
-  // Session restoration is non-critical. Move it outside the main try/catch 
-  // so that even if it fails, the app (and camera) still works.
-  try {
+    
+    // Auth & Session
+    initGoogleLogin();
+    checkAndRestoreAuth();
+    
+    // Check for existing session recording
     await checkAndRestoreSession();
   } catch (sessErr) {
     console.warn('Session restoration skipped or failed:', sessErr);
+    console.error('Error initializing media devices:', sessErr);
+    showOverlay('Camera/Mic access denied. Please allow permissions.', true);
   }
 }
 
@@ -369,6 +378,8 @@ function setupEventListeners() {
   });
 
   youtubeUploadBtn.addEventListener('click', startYoutubeUpload);
+  signoutBtn.addEventListener('click', handleSignOut);
+  if (customSigninBtn) customSigninBtn.addEventListener('click', requestLogin);
 }
 
 function runCountdownThenStartRecording() {
@@ -616,7 +627,12 @@ function setState(newState) {
     playBtn.classList.remove('hidden');
     discardBtn.classList.remove('hidden');
     downloadBtn.classList.remove('hidden');
-    if (YOUTUBE_UPLOAD_ENABLED) youtubeBtn.classList.remove('hidden');
+    
+    // YouTube GATING: Only show if enabled AND user is logged in
+    if (YOUTUBE_UPLOAD_ENABLED && userProfile) {
+      youtubeBtn.classList.remove('hidden');
+    }
+    
     editBtn.classList.remove('hidden');
     editingTools.classList.remove('hidden');
     editBtn.setAttribute('aria-expanded', 'false');
@@ -644,52 +660,37 @@ function showOverlay(text, persistent = false) {
 
 
 // --- YouTube upload ---
-function startYoutubeUpload() {
+async function startYoutubeUpload() {
   if (!objectUrl) {
     youtubeStatusEl.textContent = 'No video to upload.';
     return;
   }
-  if (!GOOGLE_CLIENT_ID) {
-    youtubeStatusEl.textContent = 'YouTube upload is not configured. Add your Google Client ID in app.js.';
+  
+  if (!accessToken) {
+    youtubeStatusEl.textContent = 'Please sign in from Settings first.';
     return;
   }
-  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
-    youtubeStatusEl.textContent = 'Google sign-in is loading. Try again in a moment.';
-    return;
-  }
+
   const title = (youtubeTitleInput.value || 'Practice recording').trim();
   const privacy = youtubePrivacySelect.value;
-  youtubeUploadBtn.disabled = true;
-  youtubeStatusEl.textContent = 'Opening sign-in…';
 
-  // Request token immediately (no await) so the popup opens in response to the click and isn't blocked
-  const client = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
-    scope: 'https://www.googleapis.com/auth/youtube.upload',
-    error_callback: (err) => {
-      console.error('Google Sign-in initial error:', err);
-      youtubeStatusEl.textContent = 'Sign-in failed or closed.';
-      youtubeUploadBtn.disabled = false;
-    },
-    callback: async (tokenResponse) => {
-      try {
-        youtubeStatusEl.textContent = 'Preparing video…';
-        const res = await fetch(objectUrl);
-        const blob = await res.blob();
-        const mimeType = recordedFormat === 'mp4' ? 'video/mp4' : 'video/webm';
-        youtubeStatusEl.textContent = 'Uploading…';
-        await uploadVideoToYouTube(tokenResponse.access_token, blob, mimeType, title, privacy);
-        youtubeStatusEl.textContent = 'Upload complete. Check your YouTube studio.';
-        youtubeUploadBtn.textContent = 'Upload another';
-      } catch (err) {
-        console.error('YouTube upload failed:', err);
-        youtubeStatusEl.textContent = 'Upload failed: ' + (err.message || 'Unknown error');
-      } finally {
-        youtubeUploadBtn.disabled = false;
-      }
-    }
-  });
-  client.requestAccessToken();
+  youtubeUploadBtn.disabled = true;
+  youtubeStatusEl.textContent = 'Preparing video…';
+
+  try {
+    const res = await fetch(objectUrl);
+    const blob = await res.blob();
+    const mimeType = recordedFormat === 'mp4' ? 'video/mp4' : 'video/webm';
+    youtubeStatusEl.textContent = 'Uploading…';
+    await uploadVideoToYouTube(accessToken, blob, mimeType, title, privacy);
+    youtubeStatusEl.textContent = 'Upload complete. Check your YouTube studio.';
+    youtubeUploadBtn.textContent = 'Upload another';
+  } catch (err) {
+    console.error('YouTube upload failed:', err);
+    youtubeStatusEl.textContent = 'Upload failed: ' + (err.message || 'Unknown error');
+  } finally {
+    youtubeUploadBtn.disabled = false;
+  }
 }
 
 async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyStatus) {
@@ -820,6 +821,116 @@ async function checkAndRestoreSession() {
     }
   } catch (err) {
     console.warn('Failed to restore session from IndexedDB:', err);
+  }
+}
+
+// --- Authentication (Sign-in Gate) ---
+
+let tokenClient = null;
+
+function initGoogleLogin() {
+  if (typeof google === 'undefined' || !google.accounts || !google.accounts.oauth2) {
+    console.warn('Google Identity Services not loaded yet.');
+    return;
+  }
+
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: GOOGLE_CLIENT_ID,
+    scope: 'openid profile email https://www.googleapis.com/auth/youtube.upload',
+    callback: handleTokenResponse,
+    error_callback: (err) => {
+      console.error('Auth error:', err);
+      showOverlay('Authentication failed. Check console.');
+    }
+  });
+}
+
+function requestLogin() {
+  if (tokenClient) {
+    tokenClient.requestAccessToken();
+  } else {
+    initGoogleLogin();
+    if (tokenClient) tokenClient.requestAccessToken();
+  }
+}
+
+async function handleTokenResponse(response) {
+  if (response.error !== undefined) {
+    console.error('Token error:', response.error);
+    return;
+  }
+  
+  accessToken = response.access_token;
+  
+  try {
+    // Fetch user info from Google's UserInfo API
+    const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    
+    if (!res.ok) throw new Error('Failed to fetch user info');
+    
+    const payload = await res.json();
+    userProfile = {
+      name: payload.name,
+      email: payload.email,
+      picture: payload.picture
+    };
+    
+    // Persist for session
+    sessionStorage.setItem('pm-user-profile', JSON.stringify(userProfile));
+    sessionStorage.setItem('pm-access-token', accessToken);
+    
+    updateAuthUI();
+    
+    // If we're currently in playback, refresh UI to show YouTube button
+    if (currentState === STATE.PLAYBACK) {
+      setState(STATE.PLAYBACK);
+    }
+  } catch (err) {
+    console.error('Error handling login:', err);
+  }
+}
+
+function checkAndRestoreAuth() {
+  const savedProfile = sessionStorage.getItem('pm-user-profile');
+  const savedToken = sessionStorage.getItem('pm-access-token');
+  
+  if (savedProfile && savedToken) {
+    try {
+      userProfile = JSON.parse(savedProfile);
+      accessToken = savedToken;
+      updateAuthUI();
+    } catch (e) {
+      sessionStorage.removeItem('pm-user-profile');
+      sessionStorage.removeItem('pm-access-token');
+    }
+  }
+}
+
+function updateAuthUI() {
+  if (userProfile) {
+    authUnlogged.classList.add('hidden');
+    authLogged.classList.remove('hidden');
+    userName.textContent = userProfile.name;
+    userEmail.textContent = userProfile.email;
+    userPhoto.src = userProfile.picture;
+  } else {
+    authUnlogged.classList.remove('hidden');
+    authLogged.classList.add('hidden');
+  }
+}
+
+function handleSignOut() {
+  userProfile = null;
+  accessToken = null;
+  sessionStorage.removeItem('pm-user-profile');
+  sessionStorage.removeItem('pm-access-token');
+  updateAuthUI();
+  
+  // Hide YouTube button if currently visible
+  if (currentState === STATE.PLAYBACK) {
+    setState(STATE.PLAYBACK);
   }
 }
 
