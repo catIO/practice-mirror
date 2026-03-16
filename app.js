@@ -694,75 +694,87 @@ async function startYoutubeUpload() {
 }
 
 async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyStatus) {
-  console.log('--- Starting YouTube Resumable Upload ---');
+  console.log('--- Starting YouTube Chunked Upload ---');
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
   const proxyUrl = isLocal ? '/api/youtube-upload' : '/.netlify/functions/youtube-upload';
+  const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB per chunk
 
-  // --- Step 1: Initialize (Metadata) via Proxy ---
-  let uploadUrl = null;
+  // --- Step 1: Initialize upload session ---
+  let uploadUrl;
   try {
-    console.log('Step 1: Calling proxy at', proxyUrl);
-    const initHeaders = {
-      'Authorization': 'Bearer ' + accessToken,
-      'X-Title': title,
-      'X-Privacy': privacyStatus
-    };
-    if (isLocal) initHeaders['Content-Type'] = mimeType;
-
+    console.log('Step 1: Initializing upload session via', proxyUrl);
     const initRes = await fetch(proxyUrl, {
       method: 'POST',
-      headers: initHeaders,
-      body: isLocal ? blob : undefined
+      headers: {
+        'Authorization': 'Bearer ' + accessToken,
+        'Content-Type': mimeType,
+        'X-Title': title,
+        'X-Privacy': privacyStatus,
+        'X-Total-Size': String(blob.size)
+      }
+      // No body on init — just request the session URL
     });
 
     const initText = await initRes.text();
-    console.log('Step 1 response:', initRes.status, initText);
-
-    if (!initRes.ok) {
-      throw new Error(`Step 1 failed (${initRes.status}): ${initText}`);
-    }
+    if (!initRes.ok) throw new Error(`Step 1 failed (${initRes.status}): ${initText}`);
 
     const data = JSON.parse(initText);
-    uploadUrl = data.uploadUrl || null;
-    console.log('Step 1 success. uploadUrl:', uploadUrl ? 'received' : 'none (local handled upload)');
-
-    // Local server may handle the full upload — if no uploadUrl, we're done.
-    if (!uploadUrl) return data;
-
+    uploadUrl = data.uploadUrl;
+    if (!uploadUrl) {
+      // Local server handled the full upload
+      console.log('Upload completed by local server.');
+      return data;
+    }
+    console.log('Step 1 success: Got upload URL.');
   } catch (err) {
-    console.error('Step 1 error:', err);
-    const msg = err.message === 'Failed to fetch'
-      ? 'Step 1 failed: Could not reach the upload proxy. Check Netlify Functions.'
-      : `Step 1 failed: ${err.message}`;
-    throw new Error(msg);
+    throw new Error(`Init failed: ${err.message}`);
   }
 
-  // --- Step 2: Binary upload directly to Google ---
-  try {
-    console.log('Step 2: Uploading binary to Google...');
-    const putRes = await fetch(uploadUrl, {
-      method: 'PUT',
-      headers: { 'Content-Type': mimeType },
-      body: blob
-    });
+  // --- Step 2: Send chunks through the proxy ---
+  const totalSize = blob.size;
+  const totalChunks = Math.ceil(totalSize / CHUNK_SIZE);
+  console.log(`Step 2: Uploading ${totalChunks} chunk(s) via proxy...`);
 
-    const putText = await putRes.text();
-    console.log('Step 2 response:', putRes.status, putText.slice(0, 200));
+  for (let i = 0; i < totalChunks; i++) {
+    const start = i * CHUNK_SIZE;
+    const end = Math.min(start + CHUNK_SIZE, totalSize);
+    const chunk = blob.slice(start, end);
+    const chunkNum = i + 1;
 
-    if (!putRes.ok) {
-      throw new Error(`Step 2 failed (${putRes.status}): ${putText}`);
+    console.log(`  Chunk ${chunkNum}/${totalChunks}: bytes ${start}–${end - 1}`);
+    youtubeStatusEl.textContent = `Uploading… (${chunkNum}/${totalChunks})`;
+
+    let chunkRes;
+    try {
+      const res = await fetch(proxyUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + accessToken,
+          'Content-Type': mimeType,
+          'X-Upload-Url': uploadUrl,
+          'X-Chunk-Offset': String(start),
+          'X-Total-Size': String(totalSize)
+        },
+        body: chunk
+      });
+
+      const resText = await res.text();
+      if (!res.ok) throw new Error(`Chunk ${chunkNum} failed (${res.status}): ${resText}`);
+
+      chunkRes = JSON.parse(resText);
+      console.log(`  Chunk ${chunkNum} result:`, chunkRes.status, chunkRes.range || '');
+    } catch (err) {
+      throw new Error(`Upload failed at chunk ${chunkNum}: ${err.message}`);
     }
 
-    console.log('Step 2 success!');
-    return putText ? JSON.parse(putText) : {};
-
-  } catch (err) {
-    console.error('Step 2 error:', err);
-    const msg = err.message === 'Failed to fetch'
-      ? 'Step 2 failed: Could not upload to Google. This may be a CORS issue with the Google upload URL.'
-      : `Step 2 failed: ${err.message}`;
-    throw new Error(msg);
+    // 200/201 means all done
+    if (chunkRes.status === 200 || chunkRes.status === 201) {
+      console.log('Upload complete!');
+      return chunkRes.body ? JSON.parse(chunkRes.body) : {};
+    }
   }
+
+  return {};
 }
 
 function getSupportedMimeType(preferredFormat = 'mp4') {
