@@ -1,7 +1,7 @@
 [build]
   command = "npm install && npm run build"
   publish = "."
-  functions = "netlify/functions"
+  functions = "functions"
 
 [[redirects]]
   from = "/api/youtube-upload"
