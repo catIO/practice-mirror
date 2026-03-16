@@ -699,7 +699,9 @@ async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyS
   
   try {
     // --- Step 1: Initialize (Metadata) ---
-    const proxyUrl = '/api/youtube-upload';
+    // On prod, call the Netlify Function directly to avoid redirect issues.
+    // Locally, use the server.js proxy endpoint.
+    const proxyUrl = isLocal ? '/api/youtube-upload' : '/.netlify/functions/youtube-upload';
     const initHeaders = {
       'Authorization': 'Bearer ' + accessToken,
       'X-Title': title,
