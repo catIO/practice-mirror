@@ -696,75 +696,72 @@ async function startYoutubeUpload() {
 async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyStatus) {
   console.log('--- Starting YouTube Resumable Upload ---');
   const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  
+  const proxyUrl = isLocal ? '/api/youtube-upload' : '/.netlify/functions/youtube-upload';
+
+  // --- Step 1: Initialize (Metadata) via Proxy ---
+  let uploadUrl = null;
   try {
-    // --- Step 1: Initialize (Metadata) ---
-    // On prod, call the Netlify Function directly to avoid redirect issues.
-    // Locally, use the server.js proxy endpoint.
-    const proxyUrl = isLocal ? '/api/youtube-upload' : '/.netlify/functions/youtube-upload';
+    console.log('Step 1: Calling proxy at', proxyUrl);
     const initHeaders = {
       'Authorization': 'Bearer ' + accessToken,
       'X-Title': title,
       'X-Privacy': privacyStatus
     };
-    
-    // Only send the mimeType as 'Content-Type' if we are actually sending the body (local mode)
-    // Otherwise, let the browser handle it (or use application/json if we sent metadata)
-    if (isLocal) {
-      initHeaders['Content-Type'] = mimeType;
-    }
+    if (isLocal) initHeaders['Content-Type'] = mimeType;
 
     const initRes = await fetch(proxyUrl, {
       method: 'POST',
       headers: initHeaders,
-      mode: 'cors',
       body: isLocal ? blob : undefined
     });
 
+    const initText = await initRes.text();
+    console.log('Step 1 response:', initRes.status, initText);
+
     if (!initRes.ok) {
-      const errText = await initRes.text();
-      console.error('Step 1 (Init) Failed:', errText);
-      throw new Error(`Initialize failed: ${initRes.status} ${errText}`);
+      throw new Error(`Step 1 failed (${initRes.status}): ${initText}`);
     }
 
-    const data = await initRes.json();
-    console.log('Step 1 Success, data:', data);
+    const data = JSON.parse(initText);
+    uploadUrl = data.uploadUrl || null;
+    console.log('Step 1 success. uploadUrl:', uploadUrl ? 'received' : 'none (local handled upload)');
 
-    // If we are on production (Netlify), we now have a URL for Step 2.
-    // Locally, server.js might have finished already (status 200) and returned {uploadUrl: undefined, ...}
-    if (data.uploadUrl) {
-      console.log('--- Proceeding to Step 2: Binary Upload ---');
-      // --- Step 2: Binary Upload directly to Google ---
-      // Note: We 'omit' credentials and Authorization header as the uploadUrl is a signed session.
-      // This minimizes CORS preflight issues.
-      const putRes = await fetch(data.uploadUrl, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': mimeType
-        },
-        mode: 'cors',
-        body: blob
-      });
-      
-      if (!putRes.ok) {
-        const putErr = await putRes.text();
-        console.error('Step 2 (Binary) Failed:', putErr);
-        throw new Error(`Binary upload failed: ${putRes.status} ${putErr}`);
-      }
-      
-      console.log('Step 2 Success!');
-      return await putRes.json();
-    }
-    
-    return data;
+    // Local server may handle the full upload — if no uploadUrl, we're done.
+    if (!uploadUrl) return data;
 
   } catch (err) {
-    console.error('Caught error in uploadVideoToYouTube:', err);
-    // Rethrow with a cleaner message if it's the generic TypeError
-    if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
-      throw new Error('Network error (Failed to fetch). This is likely a CORS or connection issue.');
+    console.error('Step 1 error:', err);
+    const msg = err.message === 'Failed to fetch'
+      ? 'Step 1 failed: Could not reach the upload proxy. Check Netlify Functions.'
+      : `Step 1 failed: ${err.message}`;
+    throw new Error(msg);
+  }
+
+  // --- Step 2: Binary upload directly to Google ---
+  try {
+    console.log('Step 2: Uploading binary to Google...');
+    const putRes = await fetch(uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': mimeType },
+      body: blob
+    });
+
+    const putText = await putRes.text();
+    console.log('Step 2 response:', putRes.status, putText.slice(0, 200));
+
+    if (!putRes.ok) {
+      throw new Error(`Step 2 failed (${putRes.status}): ${putText}`);
     }
-    throw err;
+
+    console.log('Step 2 success!');
+    return putText ? JSON.parse(putText) : {};
+
+  } catch (err) {
+    console.error('Step 2 error:', err);
+    const msg = err.message === 'Failed to fetch'
+      ? 'Step 2 failed: Could not upload to Google. This may be a CORS issue with the Google upload URL.'
+      : `Step 2 failed: ${err.message}`;
+    throw new Error(msg);
   }
 }
 
