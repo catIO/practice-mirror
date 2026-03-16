@@ -694,9 +694,10 @@ async function startYoutubeUpload() {
 }
 
 async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyStatus) {
-  // Use same-origin proxy to avoid CORS (YouTube API blocks direct browser uploads).
+  // --- Step 1: Get a Resumable Upload URL from our proxy ---
+  // Our proxy (Netlify Function or local server.js) handles the metadata part.
   const proxyUrl = '/api/youtube-upload';
-  const res = await fetch(proxyUrl, {
+  const initRes = await fetch(proxyUrl, {
     method: 'POST',
     headers: {
       'Authorization': 'Bearer ' + accessToken,
@@ -704,18 +705,40 @@ async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyS
       'X-Title': title,
       'X-Privacy': privacyStatus
     },
-    body: blob
+    // Body is empty for the first step on Netlify
+    body: (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') ? blob : undefined
   });
-  if (!res.ok) {
-    const errBody = await res.text();
-    let msg = errBody || 'Upload failed';
-    try {
-      const j = JSON.parse(errBody);
-      if (j.error != null) {
-        msg = typeof j.error === 'string' ? j.error : (j.error.message || JSON.stringify(j.error));
+
+  if (!initRes.ok) {
+    const errText = await initRes.text();
+    throw new Error(errText || 'Failed to initialize upload');
+  }
+
+  // If we are on local server.js, it might have already finished the upload (backwards compatibility)
+  if (initRes.status === 200 || initRes.status === 201) {
+    const contentType = initRes.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      const data = await initRes.json();
+      // If server returned an uploadUrl, proceed to Step 2
+      if (data.uploadUrl) {
+        // --- Step 2: Binary Upload directly from Browser to Google ---
+        const putRes = await fetch(data.uploadUrl, {
+          method: 'PUT',
+          headers: {
+            'Authorization': 'Bearer ' + accessToken,
+            'Content-Type': mimeType
+          },
+          body: blob
+        });
+        
+        if (!putRes.ok) {
+          const errText = await putRes.text();
+          throw new Error(errText || 'Binary upload failed');
+        }
+        return await putRes.json();
       }
-    } catch (_) {}
-    throw new Error(msg);
+      return data;
+    }
   }
 }
 

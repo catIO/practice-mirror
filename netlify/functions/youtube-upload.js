@@ -1,8 +1,15 @@
 const https = require('https');
-const url = require('url');
 
+/**
+ * Netlify Function: youtube-upload
+ * Handles Step 1 of the Resumable YouTube Upload flow: 
+ * requesting a unique upload URL from Google.
+ * 
+ * We do NOT handle the binary data here because Netlify Functions 
+ * have a 6MB payload limit. The actual binary upload happens 
+ * directly from the browser to Google.
+ */
 exports.handler = async (event) => {
-  // Only allow POST
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
@@ -11,22 +18,26 @@ exports.handler = async (event) => {
   const title = event.headers['x-title'] || 'Practice recording';
   const privacy = event.headers['x-privacy'] || 'private';
   const contentType = event.headers['content-type'] || 'video/webm';
-  const body = Buffer.from(event.body, event.isBase64Encoded ? 'base64' : 'utf8');
 
-  if (!auth || !body || body.length === 0) {
+  if (!auth) {
     return {
       statusCode: 400,
-      body: JSON.stringify({ error: 'Missing Authorization or body' })
+      body: JSON.stringify({ error: 'Missing Authorization header' })
     };
   }
 
   const metadata = JSON.stringify({
-    snippet: { title, description: 'Recorded with Practice Mirror' },
-    status: { privacyStatus: privacy }
+    snippet: { 
+      title, 
+      description: 'Recorded with Practice Mirror' 
+    },
+    status: { 
+      privacyStatus: privacy 
+    }
   });
 
   try {
-    // 1. Initialize Resumable Upload
+    // Request a resumable upload URL from Google
     const uploadUrl = await new Promise((resolve, reject) => {
       const initOpts = {
         hostname: 'www.googleapis.com',
@@ -36,7 +47,6 @@ exports.handler = async (event) => {
           'Authorization': auth,
           'Content-Type': 'application/json; charset=UTF-8',
           'X-Upload-Content-Type': contentType,
-          'X-Upload-Content-Length': String(body.length),
           'Content-Length': Buffer.byteLength(metadata, 'utf8')
         }
       };
@@ -48,6 +58,7 @@ exports.handler = async (event) => {
           initRes.on('end', () => reject(new Error(data || initRes.statusMessage)));
           return;
         }
+        // The unique upload URL is in the 'location' header
         resolve(initRes.headers.location);
       });
       initReq.on('error', reject);
@@ -58,45 +69,17 @@ exports.handler = async (event) => {
       throw new Error('No upload URL from YouTube');
     }
 
-    // 2. Perform the actual binary upload (PUT)
-    const parsed = url.parse(uploadUrl);
-    const result = await new Promise((resolve, reject) => {
-      const putOpts = {
-        hostname: parsed.hostname,
-        path: parsed.path,
-        method: 'PUT',
-        headers: {
-          'Authorization': auth,
-          'Content-Type': contentType,
-          'Content-Length': body.length
-        }
-      };
-
-      const putReq = https.request(putOpts, (putRes) => {
-        let data = '';
-        putRes.on('data', (d) => data += d);
-        putRes.on('end', () => {
-          resolve({
-            statusCode: putRes.statusCode,
-            headers: putRes.headers,
-            body: data
-          });
-        });
-      });
-      putReq.on('error', reject);
-      putReq.end(body);
-    });
-
     return {
-      statusCode: result.statusCode,
+      statusCode: 200,
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*' // Redirects already handled in netlify.toml, but good for safety
       },
-      body: result.body
+      body: JSON.stringify({ uploadUrl })
     };
 
   } catch (err) {
-    console.error('YouTube Proxy Error:', err);
+    console.error('YouTube Init Error:', err);
     return {
       statusCode: 502,
       body: JSON.stringify({ error: err.message })

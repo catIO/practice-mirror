@@ -62,32 +62,41 @@ function proxyYouTubeUpload(req, body, res) {
       });
       return;
     }
+
     const uploadUrl = initRes.headers.location;
     if (!uploadUrl) {
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'No upload URL from YouTube' }));
       return;
     }
-    const parsed = url.parse(uploadUrl);
-    const putOpts = {
-      hostname: parsed.hostname,
-      path: parsed.path,
-      method: 'PUT',
-      headers: {
-        'Authorization': auth,
-        'Content-Type': contentType,
-        'Content-Length': body.length
-      }
-    };
-    const putReq = https.request(putOpts, (putRes) => {
-      res.writeHead(putRes.statusCode, putRes.headers);
-      putRes.pipe(res);
-    });
-    putReq.on('error', (err) => {
-      res.writeHead(502, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: err.message }));
-    });
-    putReq.end(body);
+
+    // If client provided a body, we do the upload here (backwards compatibility).
+    // If not (new two-step flow), we return the uploadUrl for the client to handle.
+    if (body && body.length > 0) {
+      const parsed = url.parse(uploadUrl);
+      const putOpts = {
+        hostname: parsed.hostname,
+        path: parsed.path,
+        method: 'PUT',
+        headers: {
+          'Authorization': auth,
+          'Content-Type': contentType,
+          'Content-Length': body.length
+        }
+      };
+      const putReq = https.request(putOpts, (putRes) => {
+        res.writeHead(putRes.statusCode, putRes.headers);
+        putRes.pipe(res);
+      });
+      putReq.on('error', (err) => {
+        res.writeHead(502, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ error: err.message }));
+      });
+      putReq.end(body);
+    } else {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ uploadUrl }));
+    }
   });
   initReq.on('error', (err) => {
     res.writeHead(502, { 'Content-Type': 'application/json' });
