@@ -7,8 +7,8 @@ const STATE = {
 // Netlify: injected at build from env GOOGLE_CLIENT_ID. Local: set in config.local.js (copy from config.local.example.js).
 const GOOGLE_CLIENT_ID = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '__GOOGLE_CLIENT_ID__';
 
-// YouTube upload: only on local (localhost / 127.0.0.1). Hidden in production until verification is done.
-const YOUTUBE_UPLOAD_ENABLED = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+// YouTube upload: gated behind login in all environments.
+const YOUTUBE_UPLOAD_ENABLED = true;
 
 let currentState = STATE.IDLE;
 let mediaStream = null;
