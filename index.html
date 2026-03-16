@@ -202,17 +202,17 @@
           <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
       </div>
-      <div class="modal-body">
+      <div id="youtube-form-view" class="modal-body">
         <div class="settings-grid">
-          <label for="youtube-title">Title</label>
+          <label for="youtube-title">Video Title</label>
           <input type="text" id="youtube-title" class="youtube-input" placeholder="Practice recording" maxlength="100">
         </div>
-        <div class="setting-group">
+        <div class="setting-group" style="margin-top: 16px;">
           <label for="youtube-privacy">Privacy</label>
           <div class="select-wrapper">
             <select id="youtube-privacy" aria-label="Privacy">
               <option value="private">Private</option>
-              <option value="unlisted">Unlisted</option>
+              <option value="unlisted" selected>Unlisted</option>
               <option value="public">Public</option>
             </select>
             <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
@@ -221,6 +221,19 @@
         <p id="youtube-status" class="youtube-status"></p>
         <div class="settings-actions">
           <button id="youtube-upload-btn" class="mdc-button mdc-button--filled">Sign in &amp; Upload</button>
+        </div>
+      </div>
+
+      <div id="youtube-success-view" class="modal-body hidden">
+        <div class="success-content">
+          <div class="success-icon-wrapper">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+          </div>
+          <h3 class="success-title">Video Posted!</h3>
+          <p class="success-message">Your practice session has been successfully uploaded to your YouTube channel.</p>
+        </div>
+        <div class="settings-actions">
+          <button id="youtube-done-btn" class="mdc-button mdc-button--filled">Done</button>
         </div>
       </div>
     </div>
@@ -235,7 +248,14 @@
   <script src="https://apis.google.com/js/api.js"></script>
 
   <!-- Optional: for local dev, create config.local.js (see config.local.example.js) -->
-  <script src="/config.local.js"></script>
+  <!-- Local Dev Config: ONLY loaded on localhost/127.0.0.1 to avoid 404 in production -->
+  <script>
+    if (location.hostname === 'localhost' || location.hostname === '127.0.0.1') {
+      const script = document.createElement('script');
+      script.src = '/config.local.js';
+      document.head.appendChild(script);
+    }
+  </script>
   <script src="app.js"></script>
   <script>
     if ('serviceWorker' in navigator) {

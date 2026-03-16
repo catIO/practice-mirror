@@ -58,6 +58,9 @@ const trimStart = document.getElementById('trim-start');
 const trimEnd = document.getElementById('trim-end');
 const processBtn = document.getElementById('process-btn');
 const youtubeModal = document.getElementById('youtube-modal');
+const youtubeFormView = document.getElementById('youtube-form-view');
+const youtubeSuccessView = document.getElementById('youtube-success-view');
+const youtubeDoneBtn = document.getElementById('youtube-done-btn');
 const closeYoutubeBtn = document.getElementById('close-youtube-btn');
 const youtubeTitleInput = document.getElementById('youtube-title');
 const youtubePrivacySelect = document.getElementById('youtube-privacy');
@@ -73,39 +76,40 @@ const customSigninBtn = document.getElementById('google-signin-custom');
 
 // Initialize
 async function init() {
+  console.log('App initialization starting...');
+  
+  // 1. Setup UI & Global Listeners (Non-blocking)
+  setupEventListeners();
+  initGoogleLogin();
+  checkAndRestoreAuth();
+  
+  // 2. Load FFmpeg (Non-blocking for other features)
   try {
-    // Load FFmpeg (UMD exposes as FFmpegWASM, unpkg sets it)
-    try {
-      const mod = window.FFmpegWASM || window.FFmpeg;
-      const FFmpegClass = mod?.FFmpeg ?? mod;
-      if (FFmpegClass && typeof FFmpegClass === 'function') {
-        ffmpeg = new FFmpegClass();
-        ffmpeg.on('log', ({ message }) => console.log(message));
-        
-        // Don't pass classWorkerURL — the UMD build resolves it against a hardcoded
-        // file:/// base, producing file:///vendor/814.ffmpeg.js which fails.
-        // Instead, serve ffmpeg.js from /vendor/ so e.p = /vendor/ and the worker
-        // auto-resolves to /vendor/814.ffmpeg.js (same-origin classic worker).
-        // Classic workers support importScripts, so coreURL can be a plain URL.
-        const base = location.origin + '/vendor/';
-        const coreURL = base + 'umd/ffmpeg-core.js';
-        const wasmURL = base + 'ffmpeg-core.wasm';
-        
-        console.log("Loading FFmpeg core...");
-        await ffmpeg.load({ coreURL, wasmURL });
-        console.log("FFmpeg loaded successfully");
-      } else {
-        console.error("FFmpeg not found. Expected window.FFmpegWASM or window.FFmpeg");
-      }
-    } catch(err) {
-      console.error('FFmpeg failed to load:', err);
+    const mod = window.FFmpegWASM || window.FFmpeg;
+    const FFmpegClass = mod?.FFmpeg ?? mod;
+    if (FFmpegClass && typeof FFmpegClass === 'function') {
+      ffmpeg = new FFmpegClass();
+      ffmpeg.on('log', ({ message }) => console.log(message));
+      
+      const base = location.origin + '/vendor/';
+      const coreURL = base + 'umd/ffmpeg-core.js';
+      const wasmURL = base + 'ffmpeg-core.wasm';
+      
+      console.log("Loading FFmpeg core...");
+      await ffmpeg.load({ coreURL, wasmURL });
+      console.log("FFmpeg loaded successfully");
     }
+  } catch(err) {
+    console.warn('FFmpeg failed to load, processing will be disabled:', err);
+  }
 
-    // Try initial permissions, but don't block layout creation if denied
+  // 3. Media Devices (Can block / fail safely)
+  try {
+    // Try initial permissions
     try {
       mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
     } catch(err) {
-      console.warn('Initial camera access suspended or denied, continuing to load UI', err);
+      console.warn('Initial camera access denied, continuing to load UI', err);
     }
     
     await populateDeviceSelectors();
@@ -116,14 +120,10 @@ async function init() {
     const savedFormat = localStorage.getItem('pm-format');
     const savedResolution = localStorage.getItem('pm-resolution');
 
-    // Apply saved dropdown options
     if (savedFormat) formatSelect.value = savedFormat;
     if (savedResolution) resolutionSelect.value = savedResolution;
-
-    // Touch up appearance is always on
     liveVideo.classList.add('beauty-filter');
 
-    // Apply saved devices if they exist in the current device list
     if (savedCamera && Array.from(cameraSelect.options).some(opt => opt.value === savedCamera)) {
       cameraSelect.value = savedCamera;
     }
@@ -131,7 +131,6 @@ async function init() {
       micSelect.value = savedMic;
     }
     
-    // Only try to start camera if we have a stream or devices
     if (mediaStream) {
       await startCamera();
     } else {
@@ -139,24 +138,18 @@ async function init() {
       updatePreviewUI();
     }
     
-    // Listen for device changes (e.g., plugging in a new mic)
     navigator.mediaDevices.addEventListener('devicechange', async () => {
       await populateDeviceSelectors();
     });
 
-    setupEventListeners();
-    
-    // Auth & Session
-    initGoogleLogin();
-    checkAndRestoreAuth();
-    
     // Check for existing session recording
     await checkAndRestoreSession();
-  } catch (sessErr) {
-    console.warn('Session restoration skipped or failed:', sessErr);
-    console.error('Error initializing media devices:', sessErr);
-    showOverlay('Camera/Mic access denied. Please allow permissions.', true);
+  } catch (err) {
+    console.error('Media initialization error:', err);
+    showOverlay('Initialization issue. Check device permissions.', true);
   }
+  
+  console.log('App initialization complete!');
 }
 
 async function populateDeviceSelectors() {
@@ -360,13 +353,23 @@ function setupEventListeners() {
     if (currentState !== STATE.PLAYBACK || !objectUrl) return;
     youtubeTitleInput.value = 'Practice recording ' + new Date().toLocaleDateString();
     youtubeStatusEl.textContent = '';
-    youtubeUploadBtn.textContent = 'Sign in & Upload';
+    youtubeUploadBtn.textContent = accessToken ? 'Upload to YouTube' : 'Sign in & Upload';
     youtubeUploadBtn.disabled = false;
+    
+    // Reset to form view
+    youtubeFormView.classList.remove('hidden');
+    youtubeSuccessView.classList.add('hidden');
+    
     youtubeModal.classList.remove('hidden');
     modalOverlay.classList.remove('hidden');
   });
 
   closeYoutubeBtn.addEventListener('click', () => {
+    youtubeModal.classList.add('hidden');
+    modalOverlay.classList.add('hidden');
+  });
+
+  youtubeDoneBtn.addEventListener('click', () => {
     youtubeModal.classList.add('hidden');
     modalOverlay.classList.add('hidden');
   });
@@ -683,9 +686,10 @@ async function startYoutubeUpload() {
     const blob = await res.blob();
     const mimeType = recordedFormat === 'mp4' ? 'video/mp4' : 'video/webm';
     await uploadVideoToYouTube(accessToken, blob, mimeType, title, privacy);
-    youtubeStatusEl.className = 'youtube-status youtube-status--success';
-    youtubeStatusEl.textContent = 'Video posted! Open YouTube Studio to see it.';
-    youtubeUploadBtn.textContent = 'Upload another';
+    
+    // Switch to success view
+    youtubeFormView.classList.add('hidden');
+    youtubeSuccessView.classList.remove('hidden');
   } catch (err) {
     console.error('YouTube upload failed:', err);
     // Detect expired / invalid token (401)
@@ -755,7 +759,7 @@ async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyS
     const chunkNum = i + 1;
 
     console.log(`  Chunk ${chunkNum}/${totalChunks}: bytes ${start}–${end - 1}`);
-    youtubeStatusEl.textContent = `Uploading... (${chunkNum} of ${totalChunks})`;
+    youtubeStatusEl.textContent = `Uploading part ${chunkNum} of ${totalChunks}...`;
 
     let chunkRes;
     try {
@@ -905,8 +909,12 @@ function initGoogleLogin() {
     return;
   }
 
+  // Get Client ID dynamically to ensure config.local.js is picked up if loaded async
+  const clientId = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '__GOOGLE_CLIENT_ID__';
+  console.log('Initializing Google Login with Client ID:', clientId);
+
   tokenClient = google.accounts.oauth2.initTokenClient({
-    client_id: GOOGLE_CLIENT_ID,
+    client_id: clientId,
     scope: 'openid profile email https://www.googleapis.com/auth/youtube.upload',
     callback: handleTokenResponse,
     error_callback: (err) => {

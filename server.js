@@ -24,15 +24,45 @@ const MIME_TYPES = {
 
 function proxyYouTubeUpload(req, body, res) {
   const auth = req.headers.authorization;
-  const title = req.headers['x-title'] || 'Practice recording';
-  const privacy = req.headers['x-privacy'] || 'private';
+  const uploadUrl = req.headers['x-upload-url'];
   const contentType = req.headers['content-type'] || 'video/webm';
 
-  if (!auth || !body || body.length === 0) {
+  if (!auth) {
     res.writeHead(400, { 'Content-Type': 'application/json' });
-    res.end(JSON.stringify({ error: 'Missing Authorization or body' }));
+    res.end(JSON.stringify({ error: 'Missing Authorization' }));
     return;
   }
+
+  // --- Step 2: Handle Chunk Upload (PUT with X-Upload-Url) ---
+  if (req.method === 'PUT' && uploadUrl) {
+    const parsed = url.parse(uploadUrl);
+    const putOpts = {
+      hostname: parsed.hostname,
+      path: parsed.path,
+      method: 'PUT',
+      headers: {
+        'Authorization': auth,
+        'Content-Type': contentType,
+        'Content-Length': body.length,
+        'Content-Range': req.headers['content-range']
+      }
+    };
+    const putReq = https.request(putOpts, (putRes) => {
+      res.writeHead(putRes.statusCode, putRes.headers);
+      putRes.pipe(res);
+    });
+    putReq.on('error', (err) => {
+      res.writeHead(502, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: err.message }));
+    });
+    putReq.end(body);
+    return;
+  }
+
+  // --- Step 1: Initialize Session (POST without body or with metadata) ---
+  const title = req.headers['x-title'] || 'Practice recording';
+  const privacy = req.headers['x-privacy'] || 'private';
+  const totalSize = req.headers['x-total-size'];
 
   const metadata = JSON.stringify({
     snippet: { title, description: 'Recorded with Practice Mirror' },
@@ -47,7 +77,7 @@ function proxyYouTubeUpload(req, body, res) {
       'Authorization': auth,
       'Content-Type': 'application/json; charset=UTF-8',
       'X-Upload-Content-Type': contentType,
-      'X-Upload-Content-Length': String(body.length),
+      ...(totalSize ? { 'X-Upload-Content-Length': totalSize } : {}),
       'Content-Length': Buffer.byteLength(metadata, 'utf8')
     }
   };
@@ -63,17 +93,16 @@ function proxyYouTubeUpload(req, body, res) {
       return;
     }
 
-    const uploadUrl = initRes.headers.location;
-    if (!uploadUrl) {
+    const sessionUrl = initRes.headers.location;
+    if (!sessionUrl) {
       res.writeHead(502, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'No upload URL from YouTube' }));
       return;
     }
 
-    // If client provided a body, we do the upload here (backwards compatibility).
-    // If not (new two-step flow), we return the uploadUrl for the client to handle.
-    if (body && body.length > 0) {
-      const parsed = url.parse(uploadUrl);
+    // If client provided a full body in the POST, upload it immediately (Legacy/Small files)
+    if (body && body.length > 0 && !totalSize) {
+      const parsed = url.parse(sessionUrl);
       const putOpts = {
         hostname: parsed.hostname,
         path: parsed.path,
@@ -88,14 +117,11 @@ function proxyYouTubeUpload(req, body, res) {
         res.writeHead(putRes.statusCode, putRes.headers);
         putRes.pipe(res);
       });
-      putReq.on('error', (err) => {
-        res.writeHead(502, { 'Content-Type': 'application/json' });
-        res.end(JSON.stringify({ error: err.message }));
-      });
       putReq.end(body);
     } else {
+      // Step 1 Success: returns the uploadUrl to the client for chunking
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ uploadUrl }));
+      res.end(JSON.stringify({ uploadUrl: sessionUrl }));
     }
   });
   initReq.on('error', (err) => {
@@ -132,7 +158,7 @@ function serveFile(filePath, res) {
 http.createServer((req, res) => {
   const pathname = url.parse(req.url).pathname;
 
-  if (req.method === 'POST' && pathname === '/api/youtube-upload') {
+  if ((req.method === 'POST' || req.method === 'PUT') && pathname === '/api/youtube-upload') {
     const chunks = [];
     req.on('data', (chunk) => chunks.push(chunk));
     req.on('end', () => {

@@ -4,7 +4,7 @@ const url = require('url');
 const CHUNK_SIZE = 4 * 1024 * 1024; // 4MB chunks (Netlify limit is 6MB)
 
 exports.handler = async (event) => {
-  if (event.httpMethod !== 'POST') {
+  if (event.httpMethod !== 'POST' && event.httpMethod !== 'PUT') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 

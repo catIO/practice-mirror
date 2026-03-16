@@ -1,4 +1,4 @@
-const CACHE_NAME = 'practice-mirror-v26';
+const CACHE_NAME = 'practice-mirror-v28';
 const ASSETS = [
   '/',
   '/index.html',
@@ -32,7 +32,10 @@ self.addEventListener('activate', (e) => {
 self.addEventListener('fetch', (e) => {
   e.respondWith(
     caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
+      return response || fetch(e.request).catch((err) => {
+        console.warn('SW fetch failed for:', e.request.url, err);
+        return new Response('Network error occurred', { status: 408, headers: { 'Content-Type': 'text/plain' } });
+      });
     })
   );
 });
