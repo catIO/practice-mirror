@@ -112,7 +112,7 @@ function serveFile(filePath, res) {
     } else {
       res.writeHead(200, { 
         'Content-Type': contentType,
-        'Cross-Origin-Opener-Policy': 'same-origin',
+        'Cross-Origin-Opener-Policy': 'same-origin-allow-popups',
         'Cross-Origin-Embedder-Policy': 'require-corp'
       });
       res.end(content, extname === '.html' || extname === '.css' || extname === '.js' ? 'utf-8' : undefined);

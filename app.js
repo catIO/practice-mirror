@@ -140,6 +140,14 @@ async function init() {
     console.error('Error initializing media devices:', err);
     showOverlay('Camera/Mic access denied. Please allow permissions.', true);
   }
+
+  // Session restoration is non-critical. Move it outside the main try/catch 
+  // so that even if it fails, the app (and camera) still works.
+  try {
+    await checkAndRestoreSession();
+  } catch (sessErr) {
+    console.warn('Session restoration skipped or failed:', sessErr);
+  }
 }
 
 async function populateDeviceSelectors() {
@@ -412,8 +420,8 @@ function startRecording() {
     }
   };
 
-  mediaRecorder.onstop = () => {
-    switchToPlayback();
+  mediaRecorder.onstop = async () => {
+    await switchToPlayback();
   };
 
   mediaRecorder.start(200); // collect 200ms chunks
@@ -426,10 +434,14 @@ function stopRecording() {
   }
 }
 
-function switchToPlayback() {
+async function switchToPlayback() {
   const mimeType = mediaRecorder.mimeType || '';
   recordedFormat = mimeType.includes('mp4') ? 'mp4' : 'webm';
   const blob = new Blob(recordedChunks, { type: mimeType });
+  
+  // Safeguard: Save to IndexedDB and mark session
+  await saveVideoToSession(blob, recordedFormat);
+  
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = URL.createObjectURL(blob);
   
@@ -448,12 +460,14 @@ function switchToPlayback() {
   setState(STATE.PLAYBACK);
 }
 
-function cleanupPlayback() {
+async function cleanupPlayback() {
   if (objectUrl) {
     URL.revokeObjectURL(objectUrl);
     objectUrl = null;
   }
   playbackVideo.src = '';
+  // Clear persistent storage
+  await clearVideoFromSession();
 }
 
 async function processVideo() {
@@ -525,6 +539,9 @@ async function processVideo() {
     
     const outputData = await ffmpeg.readFile(outputName);
     const processedBlob = new Blob([outputData], { type: `video/${outputFormat === 'mp4' ? 'mp4' : 'webm'}` });
+    
+    // Safeguard: Update session storage with processed video
+    await saveVideoToSession(processedBlob, outputFormat);
     
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = URL.createObjectURL(processedBlob);
@@ -649,6 +666,11 @@ function startYoutubeUpload() {
   const client = google.accounts.oauth2.initTokenClient({
     client_id: GOOGLE_CLIENT_ID,
     scope: 'https://www.googleapis.com/auth/youtube.upload',
+    error_callback: (err) => {
+      console.error('Google Sign-in initial error:', err);
+      youtubeStatusEl.textContent = 'Sign-in failed or closed.';
+      youtubeUploadBtn.disabled = false;
+    },
     callback: async (tokenResponse) => {
       try {
         youtubeStatusEl.textContent = 'Preparing video…';
@@ -716,6 +738,89 @@ function getSupportedMimeType(preferredFormat = 'mp4') {
     if (MediaRecorder.isTypeSupported(t)) return t;
   }
   return '';
+}
+
+// --- IndexedDB & Session Persistence (Safeguard) ---
+const DB_NAME = 'PracticeMirrorDB';
+const DB_VERSION = 1;
+const STORE_NAME = 'recordings';
+
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME);
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function saveVideoToSession(blob, format) {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.put({ blob, format, timestamp: Date.now() }, 'current-video');
+    // Set sessionStorage flag so we know this tab has a valid recording
+    sessionStorage.setItem('pm-has-recording', 'true');
+    // In native IDB, we don't await tx.complete like this. 
+    // The put operation is queued.
+  } catch (err) {
+    console.warn('Failed to save video to IndexedDB:', err);
+  }
+}
+
+async function clearVideoFromSession() {
+  try {
+    sessionStorage.removeItem('pm-has-recording');
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    tx.objectStore(STORE_NAME).delete('current-video');
+  } catch (err) {
+    console.warn('Failed to clear video from IndexedDB:', err);
+  }
+}
+
+async function checkAndRestoreSession() {
+  // If the session flag is gone (tab closed and reopened), wipe IndexedDB immediately for privacy
+  if (!sessionStorage.getItem('pm-has-recording')) {
+    await clearVideoFromSession();
+    return;
+  }
+
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const data = await new Promise((resolve, reject) => {
+      const req = tx.objectStore(STORE_NAME).get('current-video');
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+
+    if (data && data.blob) {
+      recordedFormat = data.format;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      objectUrl = URL.createObjectURL(data.blob);
+      
+      playbackVideo.src = objectUrl;
+      playbackVideo.load();
+      playbackVideo.onloadedmetadata = () => {
+        const dur = playbackVideo.duration;
+        trimStart.value = '0';
+        trimEnd.value = dur.toFixed(1);
+        trimEnd.max = dur;
+        playbackVideo.onloadedmetadata = null;
+      };
+      
+      setState(STATE.PLAYBACK);
+    }
+  } catch (err) {
+    console.warn('Failed to restore session from IndexedDB:', err);
+  }
 }
 
 // Kick off
