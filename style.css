@@ -898,6 +898,17 @@ select option {
   color: var(--text-secondary);
   margin: 0;
   min-height: 1.2em;
+  transition: color 0.2s;
+}
+
+.youtube-status--success {
+  color: #4caf50;
+  font-weight: 500;
+}
+
+.youtube-status--error {
+  color: #ef5350;
+  font-weight: 500;
 }
 
 /* Modal Overlay logic via JS */

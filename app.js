@@ -662,12 +662,12 @@ function showOverlay(text, persistent = false) {
 // --- YouTube upload ---
 async function startYoutubeUpload() {
   if (!objectUrl) {
-    youtubeStatusEl.textContent = 'No video to upload.';
+    console.warn('YouTube upload: no video to upload.');
     return;
   }
   
   if (!accessToken) {
-    youtubeStatusEl.textContent = 'Please sign in from Settings first.';
+    console.warn('YouTube upload: no access token — user not signed in.');
     return;
   }
 
@@ -675,19 +675,21 @@ async function startYoutubeUpload() {
   const privacy = youtubePrivacySelect.value;
 
   youtubeUploadBtn.disabled = true;
-  youtubeStatusEl.textContent = 'Preparing video…';
+  youtubeStatusEl.className = 'youtube-status';
+  youtubeStatusEl.textContent = '⏳ Preparing your video…';
 
   try {
     const res = await fetch(objectUrl);
     const blob = await res.blob();
     const mimeType = recordedFormat === 'mp4' ? 'video/mp4' : 'video/webm';
-    youtubeStatusEl.textContent = 'Uploading…';
     await uploadVideoToYouTube(accessToken, blob, mimeType, title, privacy);
-    youtubeStatusEl.textContent = 'Upload complete. Check your YouTube studio.';
+    youtubeStatusEl.className = 'youtube-status youtube-status--success';
+    youtubeStatusEl.textContent = '✅ Video posted! Open YouTube Studio to see it.';
     youtubeUploadBtn.textContent = 'Upload another';
   } catch (err) {
     console.error('YouTube upload failed:', err);
-    youtubeStatusEl.textContent = 'Upload failed: ' + (err.message || 'Unknown error');
+    youtubeStatusEl.className = 'youtube-status youtube-status--error';
+    youtubeStatusEl.textContent = '⚠️ Upload failed. Check the browser console for details.';
   } finally {
     youtubeUploadBtn.disabled = false;
   }
@@ -742,7 +744,7 @@ async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyS
     const chunkNum = i + 1;
 
     console.log(`  Chunk ${chunkNum}/${totalChunks}: bytes ${start}–${end - 1}`);
-    youtubeStatusEl.textContent = `Uploading… (${chunkNum}/${totalChunks})`;
+    youtubeStatusEl.textContent = `⏳ Uploading… (${chunkNum} of ${totalChunks})`;
 
     let chunkRes;
     try {
@@ -973,9 +975,16 @@ function updateAuthUI() {
     userName.textContent = userProfile.name;
     userEmail.textContent = userProfile.email;
     userPhoto.src = userProfile.picture;
+    // Update the upload button to reflect signed-in state
+    if (youtubeUploadBtn) {
+      youtubeUploadBtn.textContent = 'Upload to YouTube';
+    }
   } else {
     authUnlogged.classList.remove('hidden');
     authLogged.classList.add('hidden');
+    if (youtubeUploadBtn) {
+      youtubeUploadBtn.textContent = 'Sign in & Upload';
+    }
   }
 }
 
