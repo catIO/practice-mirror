@@ -676,7 +676,7 @@ async function startYoutubeUpload() {
 
   youtubeUploadBtn.disabled = true;
   youtubeStatusEl.className = 'youtube-status';
-  youtubeStatusEl.textContent = '⏳ Preparing your video…';
+  youtubeStatusEl.textContent = 'Preparing your video...';
 
   try {
     const res = await fetch(objectUrl);
@@ -684,12 +684,23 @@ async function startYoutubeUpload() {
     const mimeType = recordedFormat === 'mp4' ? 'video/mp4' : 'video/webm';
     await uploadVideoToYouTube(accessToken, blob, mimeType, title, privacy);
     youtubeStatusEl.className = 'youtube-status youtube-status--success';
-    youtubeStatusEl.textContent = '✅ Video posted! Open YouTube Studio to see it.';
+    youtubeStatusEl.textContent = 'Video posted! Open YouTube Studio to see it.';
     youtubeUploadBtn.textContent = 'Upload another';
   } catch (err) {
     console.error('YouTube upload failed:', err);
-    youtubeStatusEl.className = 'youtube-status youtube-status--error';
-    youtubeStatusEl.textContent = '⚠️ Upload failed. Check the browser console for details.';
+    // Detect expired / invalid token (401)
+    if (err.message && err.message.includes('401')) {
+      accessToken = null;
+      userProfile = null;
+      sessionStorage.removeItem('pm-access-token');
+      sessionStorage.removeItem('pm-user-profile');
+      updateAuthUI();
+      youtubeStatusEl.className = 'youtube-status youtube-status--error';
+      youtubeStatusEl.textContent = 'Your session expired. Please sign in again from Settings.';
+    } else {
+      youtubeStatusEl.className = 'youtube-status youtube-status--error';
+      youtubeStatusEl.textContent = 'Upload failed. Check the browser console for details.';
+    }
   } finally {
     youtubeUploadBtn.disabled = false;
   }
@@ -744,7 +755,7 @@ async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyS
     const chunkNum = i + 1;
 
     console.log(`  Chunk ${chunkNum}/${totalChunks}: bytes ${start}–${end - 1}`);
-    youtubeStatusEl.textContent = `⏳ Uploading… (${chunkNum} of ${totalChunks})`;
+    youtubeStatusEl.textContent = `Uploading... (${chunkNum} of ${totalChunks})`;
 
     let chunkRes;
     try {
