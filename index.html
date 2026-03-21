@@ -90,6 +90,15 @@
             <div class="editing-card-body">
               <div class="mdc-field-group">
                 <span class="mdc-label">Trim</span>
+                <div class="trim-timeline-container">
+                  <div id="trim-timeline" class="trim-timeline">
+                    <div id="trim-filmstrip" class="trim-filmstrip"></div>
+                    <div id="trim-active-range" class="trim-active-range"></div>
+                    <div id="trim-playhead" class="trim-playhead"></div>
+                    <div id="trim-handle-start" class="trim-handle trim-handle--start" title="Start Point" tabindex="0"></div>
+                    <div id="trim-handle-end" class="trim-handle trim-handle--end" title="End Point" tabindex="0"></div>
+                  </div>
+                </div>
                 <div class="mdc-trim-row">
                   <div class="mdc-text-field mdc-text-field--outlined">
                     <label class="mdc-floating-label" for="trim-start">Start</label>
@@ -219,6 +228,9 @@
           </div>
         </div>
         <p id="youtube-status" class="youtube-status"></p>
+        <div id="youtube-progress-container" class="progress-container hidden">
+          <div id="youtube-progress-bar" class="progress-bar"></div>
+        </div>
         <div class="settings-actions">
           <button id="youtube-upload-btn" class="mdc-button mdc-button--filled">Sign in &amp; Upload</button>
         </div>

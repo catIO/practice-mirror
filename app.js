@@ -56,6 +56,12 @@ const editBtn = document.getElementById('edit-btn');
 const editingPanel = document.getElementById('editing-panel');
 const trimStart = document.getElementById('trim-start');
 const trimEnd = document.getElementById('trim-end');
+const trimTimeline = document.getElementById('trim-timeline');
+const trimHandleStart = document.getElementById('trim-handle-start');
+const trimHandleEnd = document.getElementById('trim-handle-end');
+const trimActiveRange = document.getElementById('trim-active-range');
+const trimFilmstrip = document.getElementById('trim-filmstrip');
+const trimPlayhead = document.getElementById('trim-playhead');
 const processBtn = document.getElementById('process-btn');
 const youtubeModal = document.getElementById('youtube-modal');
 const youtubeFormView = document.getElementById('youtube-form-view');
@@ -65,6 +71,8 @@ const closeYoutubeBtn = document.getElementById('close-youtube-btn');
 const youtubeTitleInput = document.getElementById('youtube-title');
 const youtubePrivacySelect = document.getElementById('youtube-privacy');
 const youtubeStatusEl = document.getElementById('youtube-status');
+const youtubeProgressContainer = document.getElementById('youtube-progress-container');
+const youtubeProgressBar = document.getElementById('youtube-progress-bar');
 const youtubeUploadBtn = document.getElementById('youtube-upload-btn');
 const authUnlogged = document.getElementById('auth-unlogged');
 const authLogged = document.getElementById('auth-logged');
@@ -105,16 +113,7 @@ async function init() {
 
   // 3. Media Devices (Can block / fail safely)
   try {
-    // Try initial permissions
-    try {
-      mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-    } catch(err) {
-      console.warn('Initial camera access denied, continuing to load UI', err);
-    }
-    
-    await populateDeviceSelectors();
-    
-    // Read saved settings
+    // Read saved settings first
     const savedCamera = localStorage.getItem('pm-camera-id');
     const savedMic = localStorage.getItem('pm-mic-id');
     const savedFormat = localStorage.getItem('pm-format');
@@ -124,6 +123,25 @@ async function init() {
     if (savedResolution) resolutionSelect.value = savedResolution;
     liveVideo.classList.add('beauty-filter');
 
+    // Try initial permissions with saved devices if available to avoid starting default camera unnecessarily
+    try {
+      const initialConstraints = {
+        video: savedCamera ? { deviceId: { exact: savedCamera } } : true,
+        audio: savedMic ? { deviceId: { exact: savedMic } } : true
+      };
+      mediaStream = await navigator.mediaDevices.getUserMedia(initialConstraints);
+    } catch(err) {
+      console.warn('Initial camera access with saved devices denied or device not found, trying defaults', err);
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+      } catch(defaultErr) {
+        console.warn('Default media access also denied, continuing to load UI', defaultErr);
+      }
+    }
+    
+    await populateDeviceSelectors();
+    
+    // Update selectors to reflect saved or current devices
     if (savedCamera && Array.from(cameraSelect.options).some(opt => opt.value === savedCamera)) {
       cameraSelect.value = savedCamera;
     }
@@ -132,6 +150,7 @@ async function init() {
     }
     
     if (mediaStream) {
+      // Start camera with full selected resolution and constraints
       await startCamera();
     } else {
       setState(STATE.IDLE);
@@ -340,6 +359,8 @@ function setupEventListeners() {
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
   });
 
+  setupTrimTimeline();
+  
   processBtn.addEventListener('click', processVideo);
 
   editBtn.addEventListener('click', () => {
@@ -462,16 +483,166 @@ async function switchToPlayback() {
   playbackVideo.src = objectUrl;
   playbackVideo.load();
   
+  // Kick off thumbnail generation in background
+  generateThumbnails(blob);
+  
   // Set trim values to video duration once metadata loads
   playbackVideo.onloadedmetadata = () => {
     const dur = playbackVideo.duration;
     trimStart.value = '0';
     trimEnd.value = dur.toFixed(1);
     trimEnd.max = dur;
+    updateTimelineFromInputs();
     playbackVideo.onloadedmetadata = null;
   };
 
   setState(STATE.PLAYBACK);
+}
+
+function setupTrimTimeline() {
+  let draggingHandle = null;
+
+  const getPercentage = (clientX) => {
+    const rect = trimTimeline.getBoundingClientRect();
+    const x = Math.max(0, Math.min(clientX - rect.left, rect.width));
+    return x / rect.width;
+  };
+
+  const updateFromHandle = (percent) => {
+    const dur = playbackVideo.duration;
+    if (!dur) return;
+    const time = percent * dur;
+
+    if (draggingHandle === trimHandleStart) {
+      const endTime = parseFloat(trimEnd.value) || dur;
+      const newTime = Math.min(time, endTime - 0.1);
+      trimStart.value = newTime.toFixed(1);
+      playbackVideo.currentTime = newTime;
+    } else if (draggingHandle === trimHandleEnd) {
+      const startTime = parseFloat(trimStart.value) || 0;
+      const newTime = Math.max(time, startTime + 0.1);
+      trimEnd.value = newTime.toFixed(1);
+      playbackVideo.currentTime = newTime;
+    }
+    updateTimelineFromInputs();
+  };
+
+  const onMouseMove = (e) => {
+    if (!draggingHandle) return;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    updateFromHandle(getPercentage(clientX));
+  };
+
+  const onMouseUp = () => {
+    draggingHandle = null;
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+    document.removeEventListener('touchmove', onMouseMove);
+    document.removeEventListener('touchend', onMouseUp);
+  };
+
+  const onMouseDown = (e, handle) => {
+    e.preventDefault();
+    draggingHandle = handle;
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+    document.addEventListener('touchmove', onMouseMove, { passive: false });
+    document.addEventListener('touchend', onMouseUp);
+  };
+
+  trimHandleStart.addEventListener('mousedown', (e) => onMouseDown(e, trimHandleStart));
+  trimHandleEnd.addEventListener('mousedown', (e) => onMouseDown(e, trimHandleEnd));
+  trimHandleStart.addEventListener('touchstart', (e) => onMouseDown(e, trimHandleStart), { passive: false });
+  trimHandleEnd.addEventListener('touchstart', (e) => onMouseDown(e, trimHandleEnd), { passive: false });
+
+  // Handle clicking on the timeline track
+  trimTimeline.addEventListener('mousedown', (e) => {
+    if (e.target !== trimTimeline && e.target !== trimActiveRange) return;
+    const percent = getPercentage(e.clientX);
+    const dur = playbackVideo.duration;
+    if (!dur) return;
+    
+    const time = percent * dur;
+    const start = parseFloat(trimStart.value) || 0;
+    const end = parseFloat(trimEnd.value) || dur;
+    
+    // Move closest handle
+    if (Math.abs(time - start) < Math.abs(time - end)) {
+      draggingHandle = trimHandleStart;
+    } else {
+      draggingHandle = trimHandleEnd;
+    }
+    updateFromHandle(percent);
+    onMouseDown(e, draggingHandle);
+  });
+
+  trimStart.addEventListener('input', updateTimelineFromInputs);
+  trimEnd.addEventListener('input', updateTimelineFromInputs);
+
+  // Playhead synchronization
+  playbackVideo.addEventListener('timeupdate', () => {
+    const dur = playbackVideo.duration;
+    if (!dur) return;
+    const percent = (playbackVideo.currentTime / dur) * 100;
+    trimPlayhead.style.left = `${percent}%`;
+    trimPlayhead.style.display = 'block';
+  });
+
+  playbackVideo.addEventListener('play', () => {
+    trimPlayhead.style.display = 'block';
+  });
+}
+
+async function generateThumbnails(blob) {
+  if (!ffmpeg || !ffmpeg.loaded) return;
+  
+  const inputName = `thumb_input.${recordedFormat}`;
+  const videoData = await blob.arrayBuffer();
+  await ffmpeg.writeFile(inputName, new Uint8Array(videoData));
+  
+  // Get duration
+  const dur = playbackVideo.duration || 5; // fallback
+  const numThumbs = 10;
+  const fps = numThumbs / dur;
+  
+  trimFilmstrip.innerHTML = ''; // clear existing
+  
+  try {
+    // Extract thumbnails
+    // Using simple scale and fps filters
+    await ffmpeg.exec(['-i', inputName, '-vf', `fps=${fps},scale=-1:48`, 'thumb%d.jpg']);
+    
+    for (let i = 1; i <= numThumbs; i++) {
+        try {
+            const data = await ffmpeg.readFile(`thumb${i}.jpg`);
+            const url = URL.createObjectURL(new Blob([data.buffer], { type: 'image/jpeg' }));
+            const img = document.createElement('img');
+            img.src = url;
+            trimFilmstrip.appendChild(img);
+        } catch (e) {
+            // Might have fewer thumbs than requested if video is very short
+            break;
+        }
+    }
+  } catch (err) {
+    console.warn('Thumbnail generation failed:', err);
+  }
+}
+
+function updateTimelineFromInputs() {
+  const dur = playbackVideo.duration;
+  if (!dur || !trimTimeline) return;
+
+  const start = parseFloat(trimStart.value) || 0;
+  const end = parseFloat(trimEnd.value) || dur;
+
+  const startPct = (start / dur) * 100;
+  const endPct = (end / dur) * 100;
+
+  trimHandleStart.style.left = `${startPct}%`;
+  trimHandleEnd.style.left = `${endPct}%`;
+  trimActiveRange.style.left = `${startPct}%`;
+  trimActiveRange.style.width = `${endPct - startPct}%`;
 }
 
 async function cleanupPlayback() {
@@ -480,6 +651,8 @@ async function cleanupPlayback() {
     objectUrl = null;
   }
   playbackVideo.src = '';
+  trimFilmstrip.innerHTML = '';
+  trimPlayhead.style.display = 'none';
   // Clear persistent storage
   await clearVideoFromSession();
 }
@@ -680,6 +853,11 @@ async function startYoutubeUpload() {
   youtubeUploadBtn.disabled = true;
   youtubeStatusEl.className = 'youtube-status';
   youtubeStatusEl.textContent = 'Preparing your video...';
+  
+  if (youtubeProgressContainer) {
+    youtubeProgressContainer.classList.remove('hidden');
+    youtubeProgressBar.style.width = '0%';
+  }
 
   try {
     const res = await fetch(objectUrl);
@@ -707,6 +885,7 @@ async function startYoutubeUpload() {
     }
   } finally {
     youtubeUploadBtn.disabled = false;
+    if (youtubeProgressContainer) youtubeProgressContainer.classList.add('hidden');
   }
 }
 
@@ -759,7 +938,9 @@ async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyS
     const chunkNum = i + 1;
 
     console.log(`  Chunk ${chunkNum}/${totalChunks}: bytes ${start}–${end - 1}`);
-    youtubeStatusEl.textContent = `Uploading part ${chunkNum} of ${totalChunks}...`;
+    const percent = Math.round((end / totalSize) * 100);
+    youtubeStatusEl.textContent = `Uploading... ${percent}%`;
+    if (youtubeProgressBar) youtubeProgressBar.style.width = `${percent}%`;
 
     let chunkRes;
     try {
@@ -884,11 +1065,16 @@ async function checkAndRestoreSession() {
       
       playbackVideo.src = objectUrl;
       playbackVideo.load();
+
+      // Restore thumbnails
+      generateThumbnails(data.blob);
+
       playbackVideo.onloadedmetadata = () => {
         const dur = playbackVideo.duration;
         trimStart.value = '0';
         trimEnd.value = dur.toFixed(1);
         trimEnd.max = dur;
+        updateTimelineFromInputs();
         playbackVideo.onloadedmetadata = null;
       };
       
