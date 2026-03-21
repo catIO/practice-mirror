@@ -61,8 +61,8 @@ const trimHandleStart = document.getElementById('trim-handle-start');
 const trimHandleEnd = document.getElementById('trim-handle-end');
 const trimActiveRange = document.getElementById('trim-active-range');
 const trimFilmstrip = document.getElementById('trim-filmstrip');
-const trimPlayhead = document.getElementById('trim-playhead');
 const processBtn = document.getElementById('process-btn');
+let snackbarContainer;
 const youtubeModal = document.getElementById('youtube-modal');
 const youtubeFormView = document.getElementById('youtube-form-view');
 const youtubeSuccessView = document.getElementById('youtube-success-view');
@@ -119,6 +119,9 @@ async function init() {
     const savedFormat = localStorage.getItem('pm-format');
     const savedResolution = localStorage.getItem('pm-resolution');
 
+    // Initialize Snackbar Container
+    snackbarContainer = document.getElementById('snackbar-container');
+  
     if (savedFormat) formatSelect.value = savedFormat;
     if (savedResolution) resolutionSelect.value = savedResolution;
     liveVideo.classList.add('beauty-filter');
@@ -543,6 +546,7 @@ function setupTrimTimeline() {
 
   const onMouseDown = (e, handle) => {
     e.preventDefault();
+    e.stopPropagation();
     draggingHandle = handle;
     document.addEventListener('mousemove', onMouseMove);
     document.addEventListener('mouseup', onMouseUp);
@@ -562,35 +566,12 @@ function setupTrimTimeline() {
     const dur = playbackVideo.duration;
     if (!dur) return;
     
-    const time = percent * dur;
-    const start = parseFloat(trimStart.value) || 0;
-    const end = parseFloat(trimEnd.value) || dur;
-    
-    // Move closest handle
-    if (Math.abs(time - start) < Math.abs(time - end)) {
-      draggingHandle = trimHandleStart;
-    } else {
-      draggingHandle = trimHandleEnd;
-    }
-    updateFromHandle(percent);
-    onMouseDown(e, draggingHandle);
+    // Click on timeline now only seeks the video
+    playbackVideo.currentTime = percent * dur;
   });
 
   trimStart.addEventListener('input', updateTimelineFromInputs);
   trimEnd.addEventListener('input', updateTimelineFromInputs);
-
-  // Playhead synchronization
-  playbackVideo.addEventListener('timeupdate', () => {
-    const dur = playbackVideo.duration;
-    if (!dur) return;
-    const percent = (playbackVideo.currentTime / dur) * 100;
-    trimPlayhead.style.left = `${percent}%`;
-    trimPlayhead.style.display = 'block';
-  });
-
-  playbackVideo.addEventListener('play', () => {
-    trimPlayhead.style.display = 'block';
-  });
 }
 
 async function generateThumbnails(blob) {
@@ -652,7 +633,6 @@ async function cleanupPlayback() {
   }
   playbackVideo.src = '';
   trimFilmstrip.innerHTML = '';
-  trimPlayhead.style.display = 'none';
   // Clear persistent storage
   await clearVideoFromSession();
 }
@@ -735,7 +715,6 @@ async function processVideo() {
     recordedFormat = outputFormat; // processed video is now the source for further edits
     playbackVideo.src = objectUrl;
     playbackVideo.load();
-    playbackVideo.play();
     
     // reset trim values to new duration
     playbackVideo.onloadedmetadata = () => {
@@ -743,16 +722,32 @@ async function processVideo() {
       trimStart.value = '0';
       trimEnd.value = dur.toFixed(1);
       trimEnd.max = dur;
+      updateTimelineFromInputs();
+      generateThumbnails(processedBlob);
+      showToast('Processing complete', 'success');
       playbackVideo.onloadedmetadata = null;
     };
     
   } catch (err) {
     console.error("FFmpeg processing failed:", err);
-    alert("Processing failed. " + (err.message || "Check console for details."));
+    showToast("Processing failed", "error");
   } finally {
     processBtn.disabled = false;
     processBtn.textContent = 'Process Video';
   }
+}
+
+function showToast(message, type = 'info') {
+  if (!snackbarContainer) return;
+  const snackbar = document.createElement('div');
+  snackbar.className = `snackbar snackbar--${type}`;
+  snackbar.textContent = message;
+  snackbarContainer.appendChild(snackbar);
+  
+  setTimeout(() => {
+    snackbar.classList.add('fade-out');
+    snackbar.addEventListener('animationend', () => snackbar.remove());
+  }, 3000);
 }
 
 // Timer Logic
@@ -1065,8 +1060,7 @@ async function checkAndRestoreSession() {
       
       playbackVideo.src = objectUrl;
       playbackVideo.load();
-
-      // Restore thumbnails
+    // Restore thumbnails
       generateThumbnails(data.blob);
 
       playbackVideo.onloadedmetadata = () => {
@@ -1075,6 +1069,8 @@ async function checkAndRestoreSession() {
         trimEnd.value = dur.toFixed(1);
         trimEnd.max = dur;
         updateTimelineFromInputs();
+        generateThumbnails(data.blob); // Changed from `blob` to `data.blob` to match context
+        showOverlay('Processing complete');
         playbackVideo.onloadedmetadata = null;
       };
       
@@ -1142,8 +1138,9 @@ async function handleTokenResponse(response) {
       picture: payload.picture
     };
     
-    // Persist for session
-    sessionStorage.setItem('pm-user-profile', JSON.stringify(userProfile));
+    // Persist profile in localStorage, token in sessionStorage
+    localStorage.setItem('pm-user-profile', JSON.stringify(userProfile));
+    localStorage.setItem('pm-login-timestamp', Date.now());
     sessionStorage.setItem('pm-access-token', accessToken);
     
     updateAuthUI();
@@ -1158,18 +1155,35 @@ async function handleTokenResponse(response) {
 }
 
 function checkAndRestoreAuth() {
-  const savedProfile = sessionStorage.getItem('pm-user-profile');
+  const savedProfile = localStorage.getItem('pm-user-profile');
   const savedToken = sessionStorage.getItem('pm-access-token');
-  
-  if (savedProfile && savedToken) {
+  const loginTime = parseInt(localStorage.getItem('pm-login-timestamp') || '0', 10);
+  const isExpired = !loginTime || (Date.now() - loginTime > 55 * 60 * 1000);
+
+  if (savedProfile) {
     try {
       userProfile = JSON.parse(savedProfile);
-      accessToken = savedToken;
       updateAuthUI();
+      
+      if (savedToken && !isExpired) {
+        accessToken = savedToken;
+      } else {
+        // We have a profile but token is missing or expired.
+        // Try silent refresh if Google script is loaded.
+        setTimeout(() => {
+          if (tokenClient) silentTokenRefresh();
+        }, 1000);
+      }
     } catch (e) {
-      sessionStorage.removeItem('pm-user-profile');
-      sessionStorage.removeItem('pm-access-token');
+      handleSignOut();
     }
+  }
+}
+
+function silentTokenRefresh() {
+  if (tokenClient && userProfile) {
+    console.log('--- Attempting Silent Token Refresh ---');
+    tokenClient.requestAccessToken({ prompt: '' });
   }
 }
 
@@ -1196,7 +1210,8 @@ function updateAuthUI() {
 function handleSignOut() {
   userProfile = null;
   accessToken = null;
-  sessionStorage.removeItem('pm-user-profile');
+  localStorage.removeItem('pm-user-profile');
+  localStorage.removeItem('pm-login-timestamp');
   sessionStorage.removeItem('pm-access-token');
   updateAuthUI();
   

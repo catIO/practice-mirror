@@ -59,25 +59,15 @@ exports.handler = async (event) => {
       });
 
       if (!sessionUrl) throw new Error('No upload URL from YouTube');
-
-      // If body is also provided, upload the first (or only) chunk immediately
-      if (body && body.length > 0) {
-        const result = await uploadChunk(sessionUrl, auth, contentType, body, 0, body.length, totalSize || body.length);
-        return {
-          statusCode: 200,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ uploadUrl: sessionUrl, chunkResult: result })
-        };
-      }
-
+      
       return {
         statusCode: 200,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uploadUrl: sessionUrl })
       };
     } catch (err) {
-      console.error('Init error:', err);
-      return { statusCode: 502, body: JSON.stringify({ error: err.message }) };
+      console.error('YouTube Init Error:', err.message || 'Unknown error');
+      return { statusCode: 502, body: JSON.stringify({ error: 'Failed to initialize YouTube upload' }) };
     }
   }
 
@@ -97,8 +87,8 @@ exports.handler = async (event) => {
       body: JSON.stringify(result)
     };
   } catch (err) {
-    console.error('Chunk upload error:', err);
-    return { statusCode: 502, body: JSON.stringify({ error: err.message }) };
+    console.error('YouTube Chunk Error:', err.message || 'Unknown error');
+    return { statusCode: 502, body: JSON.stringify({ error: 'Failed to upload video chunk' }) };
   }
 };
 
