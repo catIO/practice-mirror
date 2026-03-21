@@ -1,7 +1,7 @@
 {
   "name": "Practice Mirror",
-  "short_name": "Mirror",
-  "description": "A PWA that records video and audio for music practice self-evaluation.",
+  "short_name": "Practice Mirror",
+  "description": "An app that records video and audio for music practice self-evaluation.",
   "start_url": "/",
   "display": "standalone",
   "background_color": "#0d0f14",

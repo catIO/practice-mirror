@@ -1069,8 +1069,6 @@ async function checkAndRestoreSession() {
         trimEnd.value = dur.toFixed(1);
         trimEnd.max = dur;
         updateTimelineFromInputs();
-        generateThumbnails(data.blob); // Changed from `blob` to `data.blob` to match context
-        showOverlay('Processing complete');
         playbackVideo.onloadedmetadata = null;
       };
       
