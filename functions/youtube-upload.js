@@ -67,7 +67,9 @@ exports.handler = async (event) => {
       };
     } catch (err) {
       console.error('YouTube Init Error:', err.message || 'Unknown error');
-      return { statusCode: 502, body: JSON.stringify({ error: 'Failed to initialize YouTube upload' }) };
+      const match = err.message ? err.message.match(/\((\d{3})\)/) : null;
+      const statusCode = match ? parseInt(match[1], 10) : 502;
+      return { statusCode, body: JSON.stringify({ error: err.message || 'Failed to initialize YouTube upload' }) };
     }
   }
 
@@ -88,7 +90,9 @@ exports.handler = async (event) => {
     };
   } catch (err) {
     console.error('YouTube Chunk Error:', err.message || 'Unknown error');
-    return { statusCode: 502, body: JSON.stringify({ error: 'Failed to upload video chunk' }) };
+    const match = err.message ? err.message.match(/\((\d{3})\)/) : null;
+    const statusCode = match ? parseInt(match[1], 10) : 502;
+    return { statusCode, body: JSON.stringify({ error: err.message || 'Failed to upload video chunk' }) };
   }
 };
 

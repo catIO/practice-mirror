@@ -839,6 +839,7 @@ async function startYoutubeUpload() {
   
   if (!accessToken) {
     console.warn('YouTube upload: no access token — user not signed in.');
+    requestLogin();
     return;
   }
 
@@ -867,11 +868,7 @@ async function startYoutubeUpload() {
     console.error('YouTube upload failed:', err);
     // Detect expired / invalid token (401)
     if (err.message && err.message.includes('401')) {
-      accessToken = null;
-      userProfile = null;
-      sessionStorage.removeItem('pm-access-token');
-      sessionStorage.removeItem('pm-user-profile');
-      updateAuthUI();
+      handleSignOut();
       youtubeStatusEl.className = 'youtube-status youtube-status--error';
       youtubeStatusEl.textContent = 'Your session expired. Please sign in again from Settings.';
     } else {
