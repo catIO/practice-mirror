@@ -30,6 +30,13 @@
       <div id="video-container" class="video-container glass-panel">
         <video id="live-video" autoplay playsinline muted></video>
         <video id="playback-video" playsinline controls class="hidden"></video>
+        <!-- Skip Indicators -->
+        <div id="skip-indicator-left" class="skip-indicator skip-left">
+          <div class="skip-circle"><span>-5</span></div>
+        </div>
+        <div id="skip-indicator-right" class="skip-indicator skip-right">
+          <div class="skip-circle"><span>+5</span></div>
+        </div>
         <div id="preview-off-placeholder" class="preview-off-placeholder hidden">
           <p class="preview-off-message">Camera and mic are off</p>
           <button type="button" id="preview-on-btn" class="mdc-button mdc-button--filled">Start preview</button>
@@ -56,6 +63,11 @@
           <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
         </button>
         
+        <!-- Rewind to Start Button -->
+        <button id="rewind-start-btn" class="action-btn secondary hidden" aria-label="Rewind to start">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+        </button>
+
         <!-- Main Record/Stop Button -->
         <button id="record-btn" class="record-btn" aria-label="Start Recording">
           <span class="record-btn-countdown" id="record-countdown" aria-live="polite"></span>

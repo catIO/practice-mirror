@@ -31,6 +31,9 @@ const recordBtn = document.getElementById('record-btn');
 const recordCountdownEl = document.getElementById('record-countdown');
 let countdownTimeoutIds = [];
 const playBtn = document.getElementById('play-btn');
+const rewindStartBtn = document.getElementById('rewind-start-btn');
+const skipLeftIndicator = document.getElementById('skip-indicator-left');
+const skipRightIndicator = document.getElementById('skip-indicator-right');
 const discardBtn = document.getElementById('discard-btn');
 const downloadBtn = document.getElementById('download-btn');
 const youtubeBtn = document.getElementById('youtube-btn');
@@ -350,15 +353,40 @@ function setupEventListeners() {
     if (currentState === STATE.PLAYBACK) {
       if (playbackVideo.paused) {
         playbackVideo.play();
+        playBtn.setAttribute('aria-label', 'Pause Recording');
         playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
       } else {
         playbackVideo.pause();
+        playBtn.setAttribute('aria-label', 'Play Recording');
         playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
       }
     }
   });
 
+  rewindStartBtn.addEventListener('click', () => {
+    if (currentState === STATE.PLAYBACK) {
+      playbackVideo.currentTime = 0;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (currentState !== STATE.PLAYBACK) return;
+    // Don't trigger if user is typing in an input
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    
+    if (e.key === 'ArrowLeft') {
+      e.preventDefault();
+      playbackVideo.currentTime = Math.max(0, playbackVideo.currentTime - 5);
+      showSkipIndicator(skipLeftIndicator);
+    } else if (e.key === 'ArrowRight') {
+      e.preventDefault();
+      playbackVideo.currentTime = Math.min(playbackVideo.duration || 0, playbackVideo.currentTime + 5);
+      showSkipIndicator(skipRightIndicator);
+    }
+  });
+
   playbackVideo.addEventListener('ended', () => {
+    playBtn.setAttribute('aria-label', 'Play Recording');
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
   });
 
@@ -765,6 +793,7 @@ function setState(newState) {
   // Reset all visibility
   recordBtn.classList.add('hidden');
   playBtn.classList.add('hidden');
+  rewindStartBtn.classList.add('hidden');
   discardBtn.classList.add('hidden');
   downloadBtn.classList.add('hidden');
   youtubeBtn.classList.add('hidden');
@@ -778,6 +807,7 @@ function setState(newState) {
   if (newState === STATE.IDLE) {
     recordBtn.classList.remove('hidden');
     recordBtn.classList.remove('recording');
+    recordBtn.setAttribute('aria-label', 'Start Recording');
     clearInterval(recordingTimer);
     recordingTimeEl.textContent = '00:00';
     showOverlay('Ready to Practice');
@@ -787,6 +817,7 @@ function setState(newState) {
     liveVideo.classList.remove('hidden');
     recordBtn.classList.remove('hidden');
     recordBtn.classList.add('recording');
+    recordBtn.setAttribute('aria-label', 'Stop Recording');
     recordingIndicator.classList.remove('hidden');
     
     recordingStartTime = Date.now();
@@ -796,11 +827,12 @@ function setState(newState) {
   } else if (newState === STATE.PLAYBACK) {
     playbackVideo.classList.remove('hidden');
     playBtn.classList.remove('hidden');
+    rewindStartBtn.classList.remove('hidden');
     discardBtn.classList.remove('hidden');
     downloadBtn.classList.remove('hidden');
     
-    // YouTube GATING: Only show if enabled AND user is logged in
-    if (YOUTUBE_UPLOAD_ENABLED && userProfile) {
+    // YouTube GATING: Only show if enabled
+    if (YOUTUBE_UPLOAD_ENABLED) {
       youtubeBtn.classList.remove('hidden');
     }
     
@@ -827,6 +859,17 @@ function showOverlay(text, persistent = false) {
       if (videoContainer) videoContainer.classList.add('ready-dismissed');
     }, 2000);
   }
+}
+
+function showSkipIndicator(el) {
+  el.classList.remove('show');
+  void el.offsetWidth; // force reflow
+  el.classList.add('show');
+  
+  if (el._skipTimeout) clearTimeout(el._skipTimeout);
+  el._skipTimeout = setTimeout(() => {
+    el.classList.remove('show');
+  }, 500);
 }
 
 

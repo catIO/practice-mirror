@@ -89,6 +89,7 @@ body {
 }
 
 .icon-btn {
+  position: relative;
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -225,6 +226,62 @@ video:hover::-webkit-media-controls {
 @keyframes fadeIn {
   from { opacity: 0; transform: translate(-50%, -40%); }
   to { opacity: 1; transform: translate(-50%, -50%); }
+}
+
+/* Skip Indicators */
+.skip-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 30%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 5;
+}
+
+.skip-left {
+  left: 0;
+  background: linear-gradient(90deg, rgba(0,0,0,0.4) 0%, transparent 100%);
+}
+
+.skip-right {
+  right: 0;
+  background: linear-gradient(-90deg, rgba(0,0,0,0.4) 0%, transparent 100%);
+}
+
+.skip-circle {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-size: 1.25rem;
+  font-weight: 600;
+  transform: scale(0.8);
+  transition: transform 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.skip-indicator.show {
+  opacity: 1;
+}
+
+.skip-indicator.show .skip-circle {
+  transform: scale(1);
+  animation: pulse-skip 0.5s ease forwards;
+}
+
+@keyframes pulse-skip {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
 }
 
 /* Recording Indicator */
@@ -424,6 +481,7 @@ select option {
 }
 
 .action-btn {
+  position: relative;
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -440,6 +498,39 @@ select option {
 .action-btn svg {
   /* Fix vertical alignment */
   display: flex;
+}
+
+/* Material Design Tooltips using aria-label */
+.action-btn::after,
+.icon-btn::after,
+.record-btn::after {
+  content: attr(aria-label);
+  position: absolute;
+  bottom: 115%;
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(33, 33, 33, 0.95);
+  color: #fff;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s, transform 0.2s, visibility 0.2s;
+  z-index: 1000;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+}
+
+.action-btn:hover::after,
+.icon-btn:hover::after,
+.record-btn:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 
 .action-btn.secondary {
