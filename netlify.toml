@@ -11,3 +11,15 @@
   from = "/api/youtube-upload"
   to = "/.netlify/functions/youtube-upload"
   status = 200
+
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Expires = "0"
+
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Expires = "0"

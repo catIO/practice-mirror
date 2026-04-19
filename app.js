@@ -5,7 +5,8 @@ const STATE = {
 };
 
 // Netlify: injected at build from env GOOGLE_CLIENT_ID. Local: set in config.local.js (copy from config.local.example.js).
-const GOOGLE_CLIENT_ID = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '__GOOGLE_CLIENT_ID__';
+const GOOGLE_CLIENT_ID = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '';
+const APP_VERSION = 'v20260419194916';
 
 // YouTube upload: gated behind login in all environments.
 const YOUTUBE_UPLOAD_ENABLED = true;
@@ -169,6 +170,9 @@ async function init() {
 
     // Check for existing session recording
     await checkAndRestoreSession();
+
+    // Register Service Worker for updates
+    registerServiceWorker();
   } catch (err) {
     console.error('Media initialization error:', err);
     showOverlay('Initialization issue. Check device permissions.', true);
@@ -370,9 +374,22 @@ function setupEventListeners() {
   });
 
   document.addEventListener('keydown', (e) => {
-    if (currentState !== STATE.PLAYBACK) return;
     // Don't trigger if user is typing in an input
-    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
+    
+    if (e.code === 'Space' || e.key === ' ') {
+      e.preventDefault();
+      if (currentState === STATE.IDLE) {
+        if (!recordBtn.disabled) runCountdownThenStartRecording();
+      } else if (currentState === STATE.RECORDING) {
+        stopRecording();
+      } else if (currentState === STATE.PLAYBACK) {
+        playBtn.click();
+      }
+      return;
+    }
+
+    if (currentState !== STATE.PLAYBACK) return;
     
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
@@ -775,7 +792,49 @@ function showToast(message, type = 'info') {
   setTimeout(() => {
     snackbar.classList.add('fade-out');
     snackbar.addEventListener('animationend', () => snackbar.remove());
-  }, 3000);
+  }, 5000); // Increased to 5s for better visibility of updates
+}
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log(`SW registered (Version: ${APP_VERSION})`);
+      
+      // Explicitly check for updates on load and periodically (every hour)
+      reg.update();
+      setInterval(() => reg.update(), 1000 * 60 * 60);
+
+      reg.onupdatefound = () => {
+        const installingWorker = reg.installing;
+        if (!installingWorker) return;
+        
+        installingWorker.onstatechange = () => {
+          if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
+            console.log('New SW version installed and waiting.');
+            // Note: sw.js has self.skipWaiting(), so it will activate immediately,
+            // which triggers the 'controllerchange' event below.
+          }
+        };
+      };
+    });
+  });
+
+  let refreshing = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (refreshing) return;
+    
+    // Only reload automatically if the user is in the IDLE state (not recording or playing back)
+    if (currentState === STATE.IDLE) {
+      refreshing = true;
+      console.log('New version detected. Reloading...');
+      window.location.reload();
+    } else {
+      // If busy, notify them but don't interrupt
+      showToast('New version available. It will apply when you finish or refresh.', 'info');
+    }
+  });
 }
 
 // Timer Logic
@@ -1130,7 +1189,7 @@ function initGoogleLogin() {
   }
 
   // Get Client ID dynamically to ensure config.local.js is picked up if loaded async
-  const clientId = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '__GOOGLE_CLIENT_ID__';
+  const clientId = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '';
   console.log('Initializing Google Login with Client ID:', clientId);
 
   tokenClient = google.accounts.oauth2.initTokenClient({

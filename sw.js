@@ -1,4 +1,4 @@
-const CACHE_NAME = 'practice-mirror-v28';
+const CACHE_NAME = 'v20260419194916';
 const ASSETS = [
   '/',
   '/index.html',
