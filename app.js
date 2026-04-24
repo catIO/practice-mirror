@@ -149,7 +149,7 @@ async function init() {
     
     await populateDeviceSelectors();
     
-    // Update selectors to reflect saved or current devices
+    // Update selectors to reflect saved IDs if they are still valid/present
     if (savedCamera && Array.from(cameraSelect.options).some(opt => opt.value === savedCamera)) {
       cameraSelect.value = savedCamera;
     }
@@ -157,8 +157,29 @@ async function init() {
       micSelect.value = savedMic;
     }
     
+    // Synchronization: If we have an active stream (from defaults or successful saved ID),
+    // and the selector isn't matching it, update the selector to match reality.
     if (mediaStream) {
-      // Start camera with full selected resolution and constraints
+      const videoTrack = mediaStream.getVideoTracks()[0];
+      const audioTrack = mediaStream.getAudioTracks()[0];
+      const activeVideoId = videoTrack?.getSettings()?.deviceId;
+      const activeAudioId = audioTrack?.getSettings()?.deviceId;
+
+      if (activeVideoId && cameraSelect.value !== activeVideoId) {
+        if (Array.from(cameraSelect.options).some(opt => opt.value === activeVideoId)) {
+          cameraSelect.value = activeVideoId;
+        }
+      }
+      if (activeAudioId && micSelect.value !== activeAudioId) {
+        if (Array.from(micSelect.options).some(opt => opt.value === activeAudioId)) {
+          micSelect.value = activeAudioId;
+        }
+      }
+    }
+    
+    if (mediaStream) {
+      // Apply full selected resolution and constraints
+      // This is necessary because the initial getUserMedia might have used defaults
       await startCamera();
     } else {
       setState(STATE.IDLE);
@@ -279,13 +300,25 @@ async function startCamera() {
   };
 
   try {
-    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const newStream = await navigator.mediaDevices.getUserMedia(constraints);
+    
+    // Replace current stream
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+    }
+    mediaStream = newStream;
+    
     liveVideo.srcObject = mediaStream;
     liveVideo.muted = true; // Avoid feedback loop
     setState(STATE.IDLE);
     updatePreviewUI();
   } catch (err) {
     console.error('Error starting camera with constraints:', constraints, err);
+    // If it failed and we have no stream at all, ensure UI reflects that
+    if (!mediaStream) {
+      setState(STATE.IDLE);
+      updatePreviewUI();
+    }
   }
 }
 
