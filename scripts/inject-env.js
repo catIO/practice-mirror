@@ -19,7 +19,7 @@ if (!clientId && process.env.NODE_ENV === 'production') {
 
 // 1. Inject GOOGLE_CLIENT_ID
 const escaped = clientId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-appJs = appJs.replace(/: '__GOOGLE_CLIENT_ID__'/g, ": '" + escaped + "'");
+appJs = appJs.replace(/'__GOOGLE_CLIENT_ID__'/g, "'" + escaped + "'");
 
 // 2. Inject Version (Timestamp)
 const version = 'v' + new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14); // e.g., v20240321123045

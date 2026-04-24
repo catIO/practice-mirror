@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -10,19 +11,29 @@
   <link rel="icon" type="image/svg+xml" href="favicon.svg">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Practice Mirror</title>
-  
+
   <!-- Offline First: System Fonts & Inline SVGs used instead of external assets -->
   <link rel="stylesheet" href="style.css">
 </head>
+
 <body class="dark-theme">
   <div class="app-container">
     <header class="app-header">
       <div class="logo">
-        <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960" fill="currentColor" aria-hidden="true"><path d="M458.15-603.59h313.07q-28.44-67.08-81.9-114.43-53.47-47.35-124.75-67.35L458.15-603.59Zm-96.3 79.52L518.5-793.85q-9.57-1.52-19.25-2.4-9.68-.88-19.25-.88-65.76 0-122.4 25t-100.17 66.76l104.42 181.3ZM172.87-400H383.7L227.28-670.02q-30.56 40.52-47.49 87.99-16.92 47.46-16.92 102.03 0 20.04 2.74 40.86 2.74 20.81 7.26 39.14Zm222.56 225.37 104.42-181.78H188.78q27 66.37 81.19 114.07 54.18 47.71 125.46 67.71ZM480-162.87q66 0 122.28-24.88 56.29-24.88 100.29-66.88L597.91-436.65 441.5-166.15q9.57 1.52 18.75 2.4 9.18.88 19.75.88Zm252.72-127.11q29.85-38.85 47.13-86.91 17.28-48.07 17.28-103.11 0-21-2.5-40.74-2.5-19.74-7.5-39.26H576.3l156.42 270.02ZM480-480Zm0 408.13q-83.67 0-158.11-32.22-74.43-32.21-130.01-87.79-55.58-55.58-87.79-130.01Q71.87-396.33 71.87-480q0-84.43 32.22-158.49 32.21-74.05 87.79-129.63 55.58-55.58 130.01-87.79 74.44-32.22 158.11-32.22 84.43 0 158.49 32.22 74.05 32.21 129.63 87.79 55.58 55.58 87.79 129.63 32.22 74.06 32.22 158.49 0 83.67-32.22 158.11-32.21 74.43-87.79 130.01-55.58 55.58-129.63 87.79Q564.43-71.87 480-71.87Z"/></svg>
+        <svg class="logo-icon" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 -960 960 960"
+          fill="currentColor" aria-hidden="true">
+          <path
+            d="M458.15-603.59h313.07q-28.44-67.08-81.9-114.43-53.47-47.35-124.75-67.35L458.15-603.59Zm-96.3 79.52L518.5-793.85q-9.57-1.52-19.25-2.4-9.68-.88-19.25-.88-65.76 0-122.4 25t-100.17 66.76l104.42 181.3ZM172.87-400H383.7L227.28-670.02q-30.56 40.52-47.49 87.99-16.92 47.46-16.92 102.03 0 20.04 2.74 40.86 2.74 20.81 7.26 39.14Zm222.56 225.37 104.42-181.78H188.78q27 66.37 81.19 114.07 54.18 47.71 125.46 67.71ZM480-162.87q66 0 122.28-24.88 56.29-24.88 100.29-66.88L597.91-436.65 441.5-166.15q9.57 1.52 18.75 2.4 9.18.88 19.75.88Zm252.72-127.11q29.85-38.85 47.13-86.91 17.28-48.07 17.28-103.11 0-21-2.5-40.74-2.5-19.74-7.5-39.26H576.3l156.42 270.02ZM480-480Zm0 408.13q-83.67 0-158.11-32.22-74.43-32.21-130.01-87.79-55.58-55.58-87.79-130.01Q71.87-396.33 71.87-480q0-84.43 32.22-158.49 32.21-74.05 87.79-129.63 55.58-55.58 130.01-87.79 74.44-32.22 158.11-32.22 84.43 0 158.49 32.22 74.05 32.21 129.63 87.79 55.58 55.58 87.79 129.63 32.22 74.06 32.22 158.49 0 83.67-32.22 158.11-32.21 74.43-87.79 130.01-55.58 55.58-129.63 87.79Q564.43-71.87 480-71.87Z" />
+        </svg>
         <h1>Practice Mirror</h1>
       </div>
       <button id="settings-btn" class="icon-btn" aria-label="Settings">
-        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+          stroke-linejoin="round" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="3" />
+          <path
+            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+        </svg>
       </button>
     </header>
 
@@ -45,12 +56,13 @@
           <div class="red-dot"></div>
           <span id="recording-time">00:00</span>
         </div>
-        
+
         <div class="state-overlay hidden" id="state-overlay">
           <!-- Text to guide user -->
           <span class="state-text">Ready to Practice</span>
         </div>
-        <button type="button" id="preview-off-hover-btn" class="preview-off-hover-overlay hidden" aria-label="Pause preview">
+        <button type="button" id="preview-off-hover-btn" class="preview-off-hover-overlay hidden"
+          aria-label="Pause preview">
           Pause Preview
         </button>
       </div>
@@ -60,12 +72,19 @@
       <div class="primary-actions">
         <!-- Revert / Delete Button -->
         <button id="discard-btn" class="action-btn secondary hidden" aria-label="Discard recording">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6"/></svg>
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2M10 11v6M14 11v6" />
+          </svg>
         </button>
-        
+
         <!-- Rewind to Start Button -->
         <button id="rewind-start-btn" class="action-btn secondary hidden" aria-label="Rewind to start">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><polygon points="19 20 9 12 19 4 19 20"/><line x1="5" y1="19" x2="5" y2="5"/></svg>
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" viewBox="0 0 24 24">
+            <polygon points="19 20 9 12 19 4 19 20" />
+            <line x1="5" y1="19" x2="5" y2="5" />
+          </svg>
         </button>
 
         <!-- Main Record/Stop Button -->
@@ -76,25 +95,39 @@
 
         <!-- Play/Pause Button for Playback -->
         <button id="play-btn" class="action-btn primary hidden" aria-label="Play Recording">
-          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M5 3l14 9-14 9V3z" />
+          </svg>
         </button>
 
         <!-- Download Button -->
         <button id="download-btn" class="action-btn secondary hidden" aria-label="Download Recording">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" viewBox="0 0 24 24">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
         </button>
-        
+
         <!-- YouTube Post Button -->
         <button id="youtube-btn" class="action-btn secondary hidden" aria-label="Post to YouTube">
-          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M21.582 6.186a2.632 2.632 0 0 0-1.85-1.85C18.096 3.895 12 3.895 12 3.895s-6.096 0-7.732.441a2.632 2.632 0 0 0-1.85 1.85C2.08 7.822 2.08 12 2.08 12s0 4.178.338 5.814a2.632 2.632 0 0 0 1.85 1.85c1.636.441 7.732.441 7.732.441s6.096 0 7.732-.441a2.632 2.632 0 0 0 1.85-1.85c.338-1.636.338-5.814.338-5.814s0-4.178-.338-5.814zM9.997 15.542v-7.084l6.216 3.542z"/></svg>
+          <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path
+              d="M21.582 6.186a2.632 2.632 0 0 0-1.85-1.85C18.096 3.895 12 3.895 12 3.895s-6.096 0-7.732.441a2.632 2.632 0 0 0-1.85 1.85C2.08 7.822 2.08 12 2.08 12s0 4.178.338 5.814a2.632 2.632 0 0 0 1.85 1.85c1.636.441 7.732.441 7.732.441s6.096 0 7.732-.441a2.632 2.632 0 0 0 1.85-1.85c.338-1.636.338-5.814.338-5.814s0-4.178-.338-5.814zM9.997 15.542v-7.084l6.216 3.542z" />
+          </svg>
         </button>
 
         <!-- Edit video (trim/process) — icon opens panel below -->
-        <button type="button" id="edit-btn" class="action-btn secondary hidden" aria-label="Edit video" aria-expanded="false" aria-controls="editing-panel">
-          <svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" viewBox="0 -960 960 960" fill="currentColor"><path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/></svg>
+        <button type="button" id="edit-btn" class="action-btn secondary hidden" aria-label="Edit video"
+          aria-expanded="false" aria-controls="editing-panel">
+          <svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" viewBox="0 -960 960 960" fill="currentColor">
+            <path
+              d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z" />
+          </svg>
         </button>
       </div>
-      
+
       <!-- Edit panel (trim + Process), toggled by edit icon -->
       <div id="editing-tools" class="editing-tools hidden" aria-hidden="true">
         <div id="editing-panel" class="editing-panel" hidden>
@@ -106,18 +139,21 @@
                   <div id="trim-timeline" class="trim-timeline">
                     <div id="trim-filmstrip" class="trim-filmstrip"></div>
                     <div id="trim-active-range" class="trim-active-range"></div>
-                    <div id="trim-handle-start" class="trim-handle trim-handle--start" title="Start Point" tabindex="0"></div>
+                    <div id="trim-handle-start" class="trim-handle trim-handle--start" title="Start Point" tabindex="0">
+                    </div>
                     <div id="trim-handle-end" class="trim-handle trim-handle--end" title="End Point" tabindex="0"></div>
                   </div>
                 </div>
                 <div class="mdc-trim-row">
                   <div class="mdc-text-field mdc-text-field--outlined">
                     <label class="mdc-floating-label" for="trim-start">Start</label>
-                    <input type="number" id="trim-start" class="mdc-input" value="0" step="0.1" min="0" inputmode="decimal" title="Seconds (e.g. 1.5)">
+                    <input type="number" id="trim-start" class="mdc-input" value="0" step="0.1" min="0"
+                      inputmode="decimal" title="Seconds (e.g. 1.5)">
                   </div>
                   <div class="mdc-text-field mdc-text-field--outlined">
                     <label class="mdc-floating-label" for="trim-end">End</label>
-                    <input type="number" id="trim-end" class="mdc-input" value="0" step="0.1" min="0" placeholder="—" inputmode="decimal" title="Seconds (e.g. 1.5)">
+                    <input type="number" id="trim-end" class="mdc-input" value="0" step="0.1" min="0" placeholder="—"
+                      inputmode="decimal" title="Seconds (e.g. 1.5)">
                   </div>
                 </div>
               </div>
@@ -127,14 +163,18 @@
         </div>
       </div>
     </div>
-    
+
     <!-- Modal Overlay and Settings Modal at app level to prevent cut off -->
     <div class="modal-overlay hidden" id="modal-overlay"></div>
     <div class="settings-modal hidden glass-panel" id="settings-modal">
       <div class="settings-header">
         <h2>Settings</h2>
         <button id="close-settings-btn" class="icon-btn" aria-label="Close Settings">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" viewBox="0 0 24 24">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
         </button>
       </div>
       <div class="settings-content">
@@ -145,11 +185,15 @@
             <p class="auth-desc">Sign in with Google to enable direct uploads to your YouTube channel.</p>
             <button id="google-signin-custom" class="google-signin-btn">
               <svg viewBox="0 0 48 48" width="20" height="20">
-                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
-                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
-                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
-                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
-                <path fill="none" d="M0 0h48v48H0z"/>
+                <path fill="#EA4335"
+                  d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                <path fill="#4285F4"
+                  d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                <path fill="#FBBC05"
+                  d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                <path fill="#34A853"
+                  d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+                <path fill="none" d="M0 0h48v48H0z" />
               </svg>
               <span>Sign in with Google</span>
             </button>
@@ -170,17 +214,28 @@
           <div class="setting-group">
             <label for="camera-select">Camera</label>
             <div class="select-wrapper">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/><circle cx="12" cy="13" r="4"/></svg>
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
               <select id="camera-select" aria-label="Select Camera">
                 <option value="">Loading cameras...</option>
               </select>
-              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </div>
           </div>
           <div class="setting-group">
             <label for="mic-select">Microphone</label>
             <div class="select-wrapper">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
+              </svg>
               <select id="mic-select" aria-label="Select Microphone">
                 <option value="">Loading mics...</option>
               </select>
@@ -189,25 +244,43 @@
           <div class="setting-group">
             <label for="resolution-select">Recording Resolution</label>
             <div class="select-wrapper">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="15" rx="2" ry="2"/><polyline points="17 2 12 7 7 2"/></svg>
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" viewBox="0 0 24 24">
+                <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
+                <polyline points="17 2 12 7 7 2" />
+              </svg>
               <select id="resolution-select" aria-label="Select Video Resolution">
                 <option value="720">720p (HD)</option>
                 <option value="1080" selected>1080p (Full HD)</option>
                 <option value="2160">2160p (4K)</option>
               </select>
-              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </div>
           </div>
           <div class="setting-group">
             <label for="format-select">Video Format</label>
-            <p class="setting-hint">Output when you use Edit → Process. MP4 works everywhere (phones, social, editors). WebM is smaller and open; some apps don’t support it.</p>
+            <p class="setting-hint">Output when you use Edit → Process. MP4 works everywhere (phones, social, editors).
+              WebM is smaller and open; some apps don’t support it.</p>
             <div class="select-wrapper">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+                stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+                <polyline points="14 2 14 8 20 8"></polyline>
+                <line x1="16" y1="13" x2="8" y2="13"></line>
+                <line x1="16" y1="17" x2="8" y2="17"></line>
+                <polyline points="10 9 9 9 8 9"></polyline>
+              </svg>
               <select id="format-select" aria-label="Select Download Format">
                 <option value="mp4">MP4 (Default)</option>
                 <option value="webm">WebM</option>
               </select>
-              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+                stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
             </div>
           </div>
         </div>
@@ -219,7 +292,11 @@
       <div class="settings-header">
         <h2>Post to YouTube</h2>
         <button id="close-youtube-btn" class="icon-btn" aria-label="Close">
-          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" viewBox="0 0 24 24">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
         </button>
       </div>
       <div id="youtube-form-view" class="modal-body">
@@ -235,7 +312,10 @@
               <option value="unlisted" selected>Unlisted</option>
               <option value="public">Public</option>
             </select>
-            <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+            <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
+              viewBox="0 0 24 24">
+              <path d="M6 9l6 6 6-6" />
+            </svg>
           </div>
         </div>
         <p id="youtube-status" class="youtube-status"></p>
@@ -250,7 +330,11 @@
       <div id="youtube-success-view" class="modal-body hidden">
         <div class="success-content">
           <div class="success-icon-wrapper">
-            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#4caf50" stroke-width="2"
+              stroke-linecap="round" stroke-linejoin="round">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
           </div>
           <h3 class="success-title">Video Posted!</h3>
           <p class="success-message">Your practice session has been successfully uploaded to your YouTube channel.</p>
@@ -265,7 +349,7 @@
   <!-- FFmpeg self-hosted: e.p resolves worker to same-origin /vendor/814.ffmpeg.js -->
   <script src="/vendor/ffmpeg.js"></script>
   <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
-  
+
   <!-- Google APIs -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
   <script src="https://apis.google.com/js/api.js"></script>
@@ -283,4 +367,5 @@
   <script src="app.js"></script>
 
 </body>
+
 </html>

@@ -4,9 +4,10 @@ const STATE = {
   PLAYBACK: 'PLAYBACK'
 };
 
-// Netlify: injected at build from env GOOGLE_CLIENT_ID. Local: set in config.local.js (copy from config.local.example.js).
-const GOOGLE_CLIENT_ID = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '';
-const APP_VERSION = 'v20260419194916';
+// --- Build-time Injected Constants ---
+// Netlify: injected at build from env GOOGLE_CLIENT_ID. Local: set in config.local.js.
+const GOOGLE_CLIENT_ID = '__GOOGLE_CLIENT_ID__';
+const APP_VERSION = '__APP_VERSION__';
 
 // YouTube upload: gated behind login in all environments.
 const YOUTUBE_UPLOAD_ENABLED = true;
@@ -941,6 +942,8 @@ async function startYoutubeUpload() {
   
   if (!accessToken) {
     console.warn('YouTube upload: no access token — user not signed in.');
+    youtubeUploadBtn.textContent = 'Signing in...';
+    youtubeUploadBtn.disabled = true;
     requestLogin();
     return;
   }
@@ -1188,8 +1191,11 @@ function initGoogleLogin() {
     return;
   }
 
-  // Get Client ID dynamically to ensure config.local.js is picked up if loaded async
-  const clientId = (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '';
+  // Use injected ID or fallback to local window global
+  const clientId = (GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('__')) 
+    ? GOOGLE_CLIENT_ID 
+    : (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '';
+    
   console.log('Initializing Google Login with Client ID:', clientId);
 
   tokenClient = google.accounts.oauth2.initTokenClient({
@@ -1208,7 +1214,13 @@ function requestLogin() {
     tokenClient.requestAccessToken();
   } else {
     initGoogleLogin();
-    if (tokenClient) tokenClient.requestAccessToken();
+    if (tokenClient) {
+      tokenClient.requestAccessToken();
+    } else {
+      console.error('Google login failed: tokenClient could not be initialized.');
+      showOverlay('Authentication initialization failed.');
+      updateAuthUI(); // Reset button text
+    }
   }
 }
 
@@ -1242,8 +1254,10 @@ async function handleTokenResponse(response) {
     
     updateAuthUI();
     
-    // If we're currently in playback, refresh UI to show YouTube button
-    if (currentState === STATE.PLAYBACK) {
+    // Auto-resume upload if we were waiting for login in the YouTube modal
+    if (!youtubeModal.classList.contains('hidden') && currentState === STATE.PLAYBACK) {
+      startYoutubeUpload();
+    } else if (currentState === STATE.PLAYBACK) {
       setState(STATE.PLAYBACK);
     }
   } catch (err) {
