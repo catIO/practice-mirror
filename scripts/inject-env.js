@@ -8,9 +8,11 @@ const path = require('path');
 
 const appPath = path.join(__dirname, '..', 'app.js');
 const swPath = path.join(__dirname, '..', 'sw.js');
+const indexPath = path.join(__dirname, '..', 'index.html');
 
 let appJs = fs.readFileSync(appPath, 'utf8');
 let swJs = fs.readFileSync(swPath, 'utf8');
+let indexHtml = fs.readFileSync(indexPath, 'utf8');
 
 const clientId = process.env.GOOGLE_CLIENT_ID || '';
 if (!clientId && process.env.NODE_ENV === 'production') {
@@ -25,8 +27,10 @@ appJs = appJs.replace(/'__GOOGLE_CLIENT_ID__'/g, "'" + escaped + "'");
 const version = 'v' + new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14); // e.g., v20240321123045
 appJs = appJs.replace(/'__APP_VERSION__'/g, "'" + version + "'");
 swJs = swJs.replace(/'__CACHE_VERSION__'/g, "'" + version + "'");
+indexHtml = indexHtml.replace(/__APP_VERSION__/g, version);
 
 fs.writeFileSync(appPath, appJs);
 fs.writeFileSync(swPath, swJs);
+fs.writeFileSync(indexPath, indexHtml);
 
-console.log(`Injected GOOGLE_CLIENT_ID and version ${version} into app.js and sw.js`);
+console.log(`Injected GOOGLE_CLIENT_ID and version ${version} into app.js, sw.js, and index.html`);

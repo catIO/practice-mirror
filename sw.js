@@ -1,4 +1,4 @@
-const CACHE_NAME = '__CACHE_VERSION__';
+const CACHE_NAME = 'v20260425190919';
 const ASSETS = [
   '/',
   '/index.html',
