@@ -119,8 +119,10 @@ async function init() {
   // 3. Media Devices (Can block / fail safely)
   try {
     // Read saved settings first
-    const savedCamera = localStorage.getItem('pm-camera-id');
-    const savedMic = localStorage.getItem('pm-mic-id');
+    const savedCameraId = localStorage.getItem('pm-camera-id');
+    const savedMicId = localStorage.getItem('pm-mic-id');
+    const savedCameraLabel = localStorage.getItem('pm-camera-label');
+    const savedMicLabel = localStorage.getItem('pm-mic-label');
     const savedFormat = localStorage.getItem('pm-format');
     const savedResolution = localStorage.getItem('pm-resolution');
 
@@ -131,30 +133,49 @@ async function init() {
     if (savedResolution) resolutionSelect.value = savedResolution;
     liveVideo.classList.add('beauty-filter');
 
-    // Try initial permissions with saved devices if available to avoid starting default camera unnecessarily
+    // Try initial permissions with saved devices
     try {
       const initialConstraints = {
-        video: savedCamera ? { deviceId: { exact: savedCamera } } : true,
-        audio: savedMic ? { deviceId: { exact: savedMic } } : true
+        video: savedCameraId ? { deviceId: { exact: savedCameraId } } : true,
+        audio: savedMicId ? { deviceId: { exact: savedMicId } } : true
       };
       mediaStream = await navigator.mediaDevices.getUserMedia(initialConstraints);
     } catch(err) {
-      console.warn('Initial camera access with saved devices denied or device not found, trying defaults', err);
+      console.warn('Initial access with saved IDs failed, attempting label-based fallback...', err);
       try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-      } catch(defaultErr) {
-        console.warn('Default media access also denied, continuing to load UI', defaultErr);
+        // If exact ID failed, try to find the device by label before falling back to defaults
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const fallbackCameraId = findDeviceIdByLabel(devices, 'videoinput', savedCameraLabel);
+        const fallbackMicId = findDeviceIdByLabel(devices, 'audioinput', savedMicLabel);
+        
+        if (fallbackCameraId || fallbackMicId) {
+          const fallbackConstraints = {
+            video: fallbackCameraId ? { deviceId: { exact: fallbackCameraId } } : true,
+            audio: fallbackMicId ? { deviceId: { exact: fallbackMicId } } : true
+          };
+          mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
+        } else {
+          // No label match either, go with defaults
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        }
+      } catch (fallbackErr) {
+        console.warn('All device restoration attempts failed, using defaults.', fallbackErr);
+        try {
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        } catch(defaultErr) {
+          console.warn('Total media access denial.', defaultErr);
+        }
       }
     }
     
     await populateDeviceSelectors();
     
-    // Update selectors to reflect saved IDs if they are still valid/present
-    if (savedCamera && Array.from(cameraSelect.options).some(opt => opt.value === savedCamera)) {
-      cameraSelect.value = savedCamera;
+    // Update selectors to reflect current state or preferences
+    if (savedCameraId && Array.from(cameraSelect.options).some(opt => opt.value === savedCameraId)) {
+      cameraSelect.value = savedCameraId;
     }
-    if (savedMic && Array.from(micSelect.options).some(opt => opt.value === savedMic)) {
-      micSelect.value = savedMic;
+    if (savedMicId && Array.from(micSelect.options).some(opt => opt.value === savedMicId)) {
+      micSelect.value = savedMicId;
     }
     
     // Synchronization: If we have an active stream (from defaults or successful saved ID),
@@ -322,14 +343,24 @@ async function startCamera() {
   }
 }
 
+function findDeviceIdByLabel(devices, kind, label) {
+  if (!label) return null;
+  const match = devices.find(d => d.kind === kind && (d.label === label || d.label.includes(label)));
+  return match ? match.deviceId : null;
+}
+
 function setupEventListeners() {
   cameraSelect.addEventListener('change', () => {
+    const selectedOption = cameraSelect.options[cameraSelect.selectedIndex];
     localStorage.setItem('pm-camera-id', cameraSelect.value);
+    localStorage.setItem('pm-camera-label', selectedOption.text);
     startCamera();
   });
   
   micSelect.addEventListener('change', () => {
+    const selectedOption = micSelect.options[micSelect.selectedIndex];
     localStorage.setItem('pm-mic-id', micSelect.value);
+    localStorage.setItem('pm-mic-label', selectedOption.text);
     startCamera();
   });
 
