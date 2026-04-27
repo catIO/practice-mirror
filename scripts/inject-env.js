@@ -21,13 +21,13 @@ if (!clientId && process.env.NODE_ENV === 'production') {
 
 // 1. Inject GOOGLE_CLIENT_ID
 const escaped = clientId.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
-appJs = appJs.replace(/'__GOOGLE_CLIENT_ID__'/g, "'" + escaped + "'");
+appJs = appJs.replace(/(const GOOGLE_CLIENT_ID = ')[^']*(';)/, `$1${escaped}$2`);
 
 // 2. Inject Version (Timestamp)
 const version = 'v' + new Date().toISOString().replace(/[-:T.Z]/g, '').slice(0, 14); // e.g., v20240321123045
-appJs = appJs.replace(/'__APP_VERSION__'/g, "'" + version + "'");
-swJs = swJs.replace(/'__CACHE_VERSION__'/g, "'" + version + "'");
-indexHtml = indexHtml.replace(/__APP_VERSION__/g, version);
+appJs = appJs.replace(/(const APP_VERSION = ')[^']*(';)/, `$1${version}$2`);
+swJs = swJs.replace(/(const CACHE_NAME = ')[^']*(';)/, `$1${version}$2`);
+indexHtml = indexHtml.replace(/v=[^"']+/g, `v=${version}`);
 
 fs.writeFileSync(appPath, appJs);
 fs.writeFileSync(swPath, swJs);

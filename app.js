@@ -6,8 +6,8 @@ const STATE = {
 
 // --- Build-time Injected Constants ---
 // Netlify: injected at build from env GOOGLE_CLIENT_ID. Local: set in config.local.js.
-const GOOGLE_CLIENT_ID = '';
-const APP_VERSION = 'v20260425190919';
+const GOOGLE_CLIENT_ID = '__GOOGLE_CLIENT_ID__';
+const APP_VERSION = '__APP_VERSION__';
 
 // YouTube upload: gated behind login in all environments.
 const YOUTUBE_UPLOAD_ENABLED = true;
