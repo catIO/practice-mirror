@@ -1190,10 +1190,8 @@ async function saveVideoToSession(blob, format) {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.put({ blob, format, timestamp: Date.now() }, 'current-video');
-    // Set sessionStorage flag so we know this tab has a valid recording
-    sessionStorage.setItem('pm-has-recording', 'true');
-    // In native IDB, we don't await tx.complete like this. 
-    // The put operation is queued.
+    // Set localStorage flag so we know this session has a valid recording that survives restarts
+    localStorage.setItem('pm-has-recording', 'true');
   } catch (err) {
     console.warn('Failed to save video to IndexedDB:', err);
   }
@@ -1201,7 +1199,7 @@ async function saveVideoToSession(blob, format) {
 
 async function clearVideoFromSession() {
   try {
-    sessionStorage.removeItem('pm-has-recording');
+    localStorage.removeItem('pm-has-recording');
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     tx.objectStore(STORE_NAME).delete('current-video');
@@ -1211,9 +1209,8 @@ async function clearVideoFromSession() {
 }
 
 async function checkAndRestoreSession() {
-  // If the session flag is gone (tab closed and reopened), wipe IndexedDB immediately for privacy
-  if (!sessionStorage.getItem('pm-has-recording')) {
-    await clearVideoFromSession();
+  // If no recording flag exists, we don't need to do anything
+  if (!localStorage.getItem('pm-has-recording')) {
     return;
   }
 
