@@ -23,6 +23,7 @@ let recordedFormat = 'webm'; // actual format from MediaRecorder (may differ fro
 let ffmpeg = null;
 let userProfile = null; // Stores { name, email, picture }
 let accessToken = null; // Stores the active token for YouTube uploads
+let isUploading = false; // Tracks active YouTube upload to prevent accidental closing
 
 // DOM Elements
 const liveVideo = document.getElementById('live-video');
@@ -509,6 +510,7 @@ function setupEventListeners() {
   });
 
   modalOverlay.addEventListener('click', () => {
+    if (isUploading) return; // Prevent closing if an upload is in progress
     settingsModal.classList.add('hidden');
     youtubeModal.classList.add('hidden');
     modalOverlay.classList.add('hidden');
@@ -1022,6 +1024,7 @@ async function startYoutubeUpload() {
   const title = (youtubeTitleInput.value || 'Practice recording').trim();
   const privacy = youtubePrivacySelect.value;
 
+  isUploading = true;
   youtubeUploadBtn.disabled = true;
   youtubeStatusEl.className = 'youtube-status';
   youtubeStatusEl.textContent = 'Preparing your video...';
@@ -1052,10 +1055,19 @@ async function startYoutubeUpload() {
       youtubeStatusEl.textContent = 'Upload failed. Please try again.';
     }
   } finally {
+    isUploading = false;
     youtubeUploadBtn.disabled = false;
     if (youtubeProgressContainer) youtubeProgressContainer.classList.add('hidden');
   }
 }
+
+// Prevent accidental tab closing during upload
+window.addEventListener('beforeunload', (e) => {
+  if (isUploading) {
+    e.preventDefault();
+    e.returnValue = ''; // Browsers show their own generic confirmation message
+  }
+});
 
 async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyStatus) {
   console.log('--- Starting YouTube Chunked Upload ---');
