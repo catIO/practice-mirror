@@ -25,6 +25,12 @@ let userProfile = null; // Stores { name, email, picture }
 let accessToken = null; // Stores the active token for YouTube uploads
 let isUploading = false; // Tracks active YouTube upload to prevent accidental closing
 
+// Web Audio API Globals for visualizer
+let audioCtx = null;
+let audioSourceNode = null;
+let analyserNode = null;
+let audioLevelAnimationId = null;
+
 // DOM Elements
 const liveVideo = document.getElementById('live-video');
 const playbackVideo = document.getElementById('playback-video');
@@ -91,12 +97,12 @@ const customSigninBtn = document.getElementById('google-signin-custom');
 // Initialize
 async function init() {
   console.log('App initialization starting...');
-  
+
   // 1. Setup UI & Global Listeners (Non-blocking)
   setupEventListeners();
   initGoogleLogin();
   checkAndRestoreAuth();
-  
+
   // 2. Load FFmpeg (Non-blocking for other features)
   try {
     const mod = window.FFmpegWASM || window.FFmpeg;
@@ -104,16 +110,16 @@ async function init() {
     if (FFmpegClass && typeof FFmpegClass === 'function') {
       ffmpeg = new FFmpegClass();
       ffmpeg.on('log', ({ message }) => console.log(message));
-      
+
       const base = location.origin + '/vendor/';
       const coreURL = base + 'umd/ffmpeg-core.js';
       const wasmURL = base + 'ffmpeg-core.wasm';
-      
+
       console.log("Loading FFmpeg core...");
       await ffmpeg.load({ coreURL, wasmURL });
       console.log("FFmpeg loaded successfully");
     }
-  } catch(err) {
+  } catch (err) {
     console.warn('FFmpeg failed to load, processing will be disabled:', err);
   }
 
@@ -129,7 +135,7 @@ async function init() {
 
     // Initialize Snackbar Container
     snackbarContainer = document.getElementById('snackbar-container');
-  
+
     if (savedFormat) formatSelect.value = savedFormat;
     if (savedResolution) resolutionSelect.value = savedResolution;
     liveVideo.classList.add('beauty-filter');
@@ -141,14 +147,14 @@ async function init() {
         audio: savedMicId ? { deviceId: { exact: savedMicId } } : true
       };
       mediaStream = await navigator.mediaDevices.getUserMedia(initialConstraints);
-    } catch(err) {
+    } catch (err) {
       console.warn('Initial access with saved IDs failed, attempting label-based fallback...', err);
       try {
         // If exact ID failed, try to find the device by label before falling back to defaults
         const devices = await navigator.mediaDevices.enumerateDevices();
         const fallbackCameraId = findDeviceIdByLabel(devices, 'videoinput', savedCameraLabel);
         const fallbackMicId = findDeviceIdByLabel(devices, 'audioinput', savedMicLabel);
-        
+
         if (fallbackCameraId || fallbackMicId) {
           const fallbackConstraints = {
             video: fallbackCameraId ? { deviceId: { exact: fallbackCameraId } } : true,
@@ -163,14 +169,14 @@ async function init() {
         console.warn('All device restoration attempts failed, using defaults.', fallbackErr);
         try {
           mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        } catch(defaultErr) {
+        } catch (defaultErr) {
           console.warn('Total media access denial.', defaultErr);
         }
       }
     }
-    
+
     await populateDeviceSelectors();
-    
+
     // Update selectors to reflect current state or preferences
     if (savedCameraId && Array.from(cameraSelect.options).some(opt => opt.value === savedCameraId)) {
       cameraSelect.value = savedCameraId;
@@ -178,7 +184,7 @@ async function init() {
     if (savedMicId && Array.from(micSelect.options).some(opt => opt.value === savedMicId)) {
       micSelect.value = savedMicId;
     }
-    
+
     // Synchronization: If we have an active stream (from defaults or successful saved ID),
     // and the selector isn't matching it, update the selector to match reality.
     if (mediaStream) {
@@ -198,7 +204,7 @@ async function init() {
         }
       }
     }
-    
+
     if (mediaStream) {
       // Apply full selected resolution and constraints
       // This is necessary because the initial getUserMedia might have used defaults
@@ -207,7 +213,7 @@ async function init() {
       setState(STATE.IDLE);
       updatePreviewUI();
     }
-    
+
     navigator.mediaDevices.addEventListener('devicechange', async () => {
       await populateDeviceSelectors();
     });
@@ -221,13 +227,13 @@ async function init() {
     console.error('Media initialization error:', err);
     showOverlay('Initialization issue. Check device permissions.', true);
   }
-  
+
   console.log('App initialization complete!');
 }
 
 async function populateDeviceSelectors() {
   const devices = await navigator.mediaDevices.enumerateDevices();
-  
+
   const videoInput = devices.filter(d => d.kind === 'videoinput');
   const audioInput = devices.filter(d => d.kind === 'audioinput');
 
@@ -247,6 +253,8 @@ function stopPreview() {
   mediaStream.getTracks().forEach(track => track.stop());
   mediaStream = null;
   updatePreviewUI();
+  cleanupAudioLevelMeter();
+  updateDeviceOverlayDisplay();
 }
 
 function updatePreviewUI() {
@@ -290,12 +298,12 @@ async function startCamera() {
 
   const videoSource = cameraSelect.value;
   const audioSource = micSelect.value;
-  
+
   // Determine resolution constraints
   const resVal = resolutionSelect.value || '1080';
   let widthConstraint = { ideal: 1920 };
   let heightConstraint = { ideal: 1080 };
-  
+
   if (resVal === '720') {
     widthConstraint = { ideal: 1280 };
     heightConstraint = { ideal: 720 };
@@ -316,30 +324,35 @@ async function startCamera() {
 
   const constraints = {
     video: videoConstraints,
-    audio: audioSource 
-      ? { deviceId: { exact: audioSource }, echoCancellation: false, autoGainControl: false, noiseSuppression: false } 
+    audio: audioSource
+      ? { deviceId: { exact: audioSource }, echoCancellation: false, autoGainControl: false, noiseSuppression: false }
       : true
   };
 
   try {
     const newStream = await navigator.mediaDevices.getUserMedia(constraints);
-    
+
     // Replace current stream
     if (mediaStream) {
       mediaStream.getTracks().forEach(track => track.stop());
     }
     mediaStream = newStream;
-    
+
     liveVideo.srcObject = mediaStream;
     liveVideo.muted = true; // Avoid feedback loop
     setState(STATE.IDLE);
     updatePreviewUI();
+    updateDeviceOverlayDisplay();
+    setupAudioLevelMeter(mediaStream);
   } catch (err) {
     console.error('Error starting camera with constraints:', constraints, err);
     // If it failed and we have no stream at all, ensure UI reflects that
     if (!mediaStream) {
       setState(STATE.IDLE);
       updatePreviewUI();
+    } else {
+      updateDeviceOverlayDisplay();
+      setupAudioLevelMeter(mediaStream);
     }
   }
 }
@@ -357,7 +370,7 @@ function setupEventListeners() {
     localStorage.setItem('pm-camera-label', selectedOption.text);
     startCamera();
   });
-  
+
   micSelect.addEventListener('change', () => {
     const selectedOption = micSelect.options[micSelect.selectedIndex];
     localStorage.setItem('pm-mic-id', micSelect.value);
@@ -386,7 +399,7 @@ function setupEventListeners() {
     settingsModal.classList.add('hidden');
     modalOverlay.classList.add('hidden');
   });
-  
+
   recordBtn.addEventListener('click', () => {
     if (currentState === STATE.IDLE) {
       runCountdownThenStartRecording();
@@ -409,10 +422,10 @@ function setupEventListeners() {
       a.href = objectUrl;
       const ext = recordedFormat === 'mp4' ? 'mp4' : 'webm';
       a.download = `practice-recording-${new Date().getTime()}.${ext}`;
-      
+
       document.body.appendChild(a);
       a.click();
-      
+
       setTimeout(() => {
         document.body.removeChild(a);
       }, 100);
@@ -442,7 +455,7 @@ function setupEventListeners() {
   document.addEventListener('keydown', (e) => {
     // Don't trigger if user is typing in an input
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.isContentEditable) return;
-    
+
     if (e.code === 'Space' || e.key === ' ') {
       e.preventDefault();
       if (currentState === STATE.IDLE) {
@@ -456,7 +469,7 @@ function setupEventListeners() {
     }
 
     if (currentState !== STATE.PLAYBACK) return;
-    
+
     if (e.key === 'ArrowLeft') {
       e.preventDefault();
       playbackVideo.currentTime = Math.max(0, playbackVideo.currentTime - 5);
@@ -474,7 +487,7 @@ function setupEventListeners() {
   });
 
   setupTrimTimeline();
-  
+
   processBtn.addEventListener('click', processVideo);
 
   editBtn.addEventListener('click', () => {
@@ -490,11 +503,11 @@ function setupEventListeners() {
     youtubeStatusEl.textContent = '';
     youtubeUploadBtn.textContent = accessToken ? 'Upload to YouTube' : 'Sign in & Upload';
     youtubeUploadBtn.disabled = false;
-    
+
     // Reset to form view
     youtubeFormView.classList.remove('hidden');
     youtubeSuccessView.classList.add('hidden');
-    
+
     youtubeModal.classList.remove('hidden');
     modalOverlay.classList.remove('hidden');
   });
@@ -553,7 +566,7 @@ function runCountdownThenStartRecording() {
 function startRecording() {
   if (!mediaStream) return;
   recordedChunks = [];
-  
+
   const selectedFormat = formatSelect.value || 'mp4';
   const options = { mimeType: getSupportedMimeType(selectedFormat) };
   try {
@@ -588,19 +601,19 @@ async function switchToPlayback() {
   const mimeType = mediaRecorder.mimeType || '';
   recordedFormat = mimeType.includes('mp4') ? 'mp4' : 'webm';
   const blob = new Blob(recordedChunks, { type: mimeType });
-  
+
   // Safeguard: Save to IndexedDB and mark session
   await saveVideoToSession(blob, recordedFormat);
-  
+
   if (objectUrl) URL.revokeObjectURL(objectUrl);
   objectUrl = URL.createObjectURL(blob);
-  
+
   playbackVideo.src = objectUrl;
   playbackVideo.load();
-  
+
   // Kick off thumbnail generation in background
   generateThumbnails(blob);
-  
+
   // Set trim values to video duration once metadata loads
   playbackVideo.onloadedmetadata = () => {
     const dur = playbackVideo.duration;
@@ -677,7 +690,7 @@ function setupTrimTimeline() {
     const percent = getPercentage(e.clientX);
     const dur = playbackVideo.duration;
     if (!dur) return;
-    
+
     // Click on timeline now only seeks the video
     playbackVideo.currentTime = percent * dur;
   });
@@ -688,34 +701,34 @@ function setupTrimTimeline() {
 
 async function generateThumbnails(blob) {
   if (!ffmpeg || !ffmpeg.loaded) return;
-  
+
   const inputName = `thumb_input.${recordedFormat}`;
   const videoData = await blob.arrayBuffer();
   await ffmpeg.writeFile(inputName, new Uint8Array(videoData));
-  
+
   // Get duration
   const dur = playbackVideo.duration || 5; // fallback
   const numThumbs = 10;
   const fps = numThumbs / dur;
-  
+
   trimFilmstrip.innerHTML = ''; // clear existing
-  
+
   try {
     // Extract thumbnails
     // Using simple scale and fps filters
     await ffmpeg.exec(['-i', inputName, '-vf', `fps=${fps},scale=-1:48`, 'thumb%d.jpg']);
-    
+
     for (let i = 1; i <= numThumbs; i++) {
-        try {
-            const data = await ffmpeg.readFile(`thumb${i}.jpg`);
-            const url = URL.createObjectURL(new Blob([data.buffer], { type: 'image/jpeg' }));
-            const img = document.createElement('img');
-            img.src = url;
-            trimFilmstrip.appendChild(img);
-        } catch (e) {
-            // Might have fewer thumbs than requested if video is very short
-            break;
-        }
+      try {
+        const data = await ffmpeg.readFile(`thumb${i}.jpg`);
+        const url = URL.createObjectURL(new Blob([data.buffer], { type: 'image/jpeg' }));
+        const img = document.createElement('img');
+        img.src = url;
+        trimFilmstrip.appendChild(img);
+      } catch (e) {
+        // Might have fewer thumbs than requested if video is very short
+        break;
+      }
     }
   } catch (err) {
     console.warn('Thumbnail generation failed:', err);
@@ -754,10 +767,10 @@ async function processVideo() {
     alert("Video editor is still loading or failed. Please refresh and ensure you're online.");
     return;
   }
-  
+
   processBtn.disabled = true;
   processBtn.textContent = 'Processing...';
-  
+
   try {
     const videoDuration = playbackVideo.duration;
     if (!videoDuration || isNaN(videoDuration)) {
@@ -768,7 +781,7 @@ async function processVideo() {
     const end = Math.min(videoDuration, parseFloat(trimEnd.value) || videoDuration);
     const duration = end - start;
     const addFade = true; // always apply fade in/out
-    
+
     if (duration <= 0) {
       alert("End time must be greater than start time.");
       return;
@@ -779,55 +792,55 @@ async function processVideo() {
     const outputFormat = formatSelect.value || 'mp4';
     const inputName = `input.${inputFormat}`;
     const outputName = `output.${outputFormat}`;
-    
+
     // Convert objectUrL string back to a valid URL we can fetch
     const response = await fetch(objectUrl);
     const videoData = await response.arrayBuffer();
-    
+
     await ffmpeg.writeFile(inputName, new Uint8Array(videoData));
-    
+
     let ffmpegArgs = [];
     if (start > 0) {
-       ffmpegArgs.push('-ss', start.toString());
+      ffmpegArgs.push('-ss', start.toString());
     }
-    
+
     ffmpegArgs.push('-i', inputName);
-    
+
     if (end > start) {
-       ffmpegArgs.push('-t', duration.toString());
+      ffmpegArgs.push('-t', duration.toString());
     }
-    
+
     if (addFade && duration > 2) {
       // 1-second fade in and out 
       const fadeOutStart = duration - 1;
       ffmpegArgs.push('-vf', `fade=t=in:st=0:d=1,fade=t=out:st=${fadeOutStart}:d=1`);
       ffmpegArgs.push('-af', `afade=t=in:st=0:d=1,afade=t=out:st=${fadeOutStart}:d=1`);
     }
-    
+
     // Maintain decent defaults for re-encoding
     if (outputFormat === 'mp4') {
       ffmpegArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28');
     }
-    
+
     ffmpegArgs.push(outputName);
-    
+
     const exitCode = await ffmpeg.exec(ffmpegArgs);
     if (exitCode !== 0) {
       throw new Error(`FFmpeg exited with code ${exitCode}`);
     }
-    
+
     const outputData = await ffmpeg.readFile(outputName);
     const processedBlob = new Blob([outputData], { type: `video/${outputFormat === 'mp4' ? 'mp4' : 'webm'}` });
-    
+
     // Safeguard: Update session storage with processed video
     await saveVideoToSession(processedBlob, outputFormat);
-    
+
     if (objectUrl) URL.revokeObjectURL(objectUrl);
     objectUrl = URL.createObjectURL(processedBlob);
     recordedFormat = outputFormat; // processed video is now the source for further edits
     playbackVideo.src = objectUrl;
     playbackVideo.load();
-    
+
     // reset trim values to new duration
     playbackVideo.onloadedmetadata = () => {
       const dur = playbackVideo.duration;
@@ -839,7 +852,7 @@ async function processVideo() {
       showToast('Processing complete', 'success');
       playbackVideo.onloadedmetadata = null;
     };
-    
+
   } catch (err) {
     console.error("FFmpeg processing failed:", err);
     showToast("Processing failed", "error");
@@ -855,7 +868,7 @@ function showToast(message, type = 'info') {
   snackbar.className = `snackbar snackbar--${type}`;
   snackbar.textContent = message;
   snackbarContainer.appendChild(snackbar);
-  
+
   setTimeout(() => {
     snackbar.classList.add('fade-out');
     snackbar.addEventListener('animationend', () => snackbar.remove());
@@ -868,7 +881,7 @@ function registerServiceWorker() {
   window.addEventListener('load', () => {
     navigator.serviceWorker.register('/sw.js').then(reg => {
       console.log(`SW registered (Version: ${APP_VERSION})`);
-      
+
       // Explicitly check for updates on load and periodically (every hour)
       reg.update();
       setInterval(() => reg.update(), 1000 * 60 * 60);
@@ -876,7 +889,7 @@ function registerServiceWorker() {
       reg.onupdatefound = () => {
         const installingWorker = reg.installing;
         if (!installingWorker) return;
-        
+
         installingWorker.onstatechange = () => {
           if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
             console.log('New SW version installed and waiting.');
@@ -898,7 +911,7 @@ function registerServiceWorker() {
   let refreshing = false;
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (refreshing) return;
-    
+
     // Only reload automatically if the user is in the IDLE state (not recording or playing back)
     if (currentState === STATE.IDLE) {
       refreshing = true;
@@ -922,7 +935,7 @@ function updateTimer() {
 // State Management & UI Updates
 function setState(newState) {
   currentState = newState;
-  
+
   // Reset all visibility
   recordBtn.classList.add('hidden');
   playBtn.classList.add('hidden');
@@ -936,7 +949,7 @@ function setState(newState) {
   playbackVideo.classList.add('hidden');
   recordingIndicator.classList.add('hidden');
   stateOverlay.classList.add('hidden');
-  
+
   if (newState === STATE.IDLE) {
     recordBtn.classList.remove('hidden');
     recordBtn.classList.remove('recording');
@@ -946,29 +959,33 @@ function setState(newState) {
     showOverlay('Ready to Practice');
     updatePreviewUI();
     
+    if (mediaStream) {
+      setupAudioLevelMeter(mediaStream);
+    }
+
   } else if (newState === STATE.RECORDING) {
     liveVideo.classList.remove('hidden');
     recordBtn.classList.remove('hidden');
     recordBtn.classList.add('recording');
     recordBtn.setAttribute('aria-label', 'Stop Recording');
     recordingIndicator.classList.remove('hidden');
-    
+
     recordingStartTime = Date.now();
     updateTimer();
     recordingTimer = setInterval(updateTimer, 1000);
-    
+
   } else if (newState === STATE.PLAYBACK) {
     playbackVideo.classList.remove('hidden');
     playBtn.classList.remove('hidden');
     rewindStartBtn.classList.remove('hidden');
     discardBtn.classList.remove('hidden');
     downloadBtn.classList.remove('hidden');
-    
+
     // YouTube GATING: Only show if enabled
     if (YOUTUBE_UPLOAD_ENABLED) {
       youtubeBtn.classList.remove('hidden');
     }
-    
+
     editBtn.classList.remove('hidden');
     editingTools.classList.remove('hidden');
     editBtn.setAttribute('aria-expanded', 'false');
@@ -977,9 +994,12 @@ function setState(newState) {
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
     clearInterval(recordingTimer);
   }
-  
+
   // Ensure preview UI (like 'Pause Preview' button) updates for all states
   updatePreviewUI();
+
+  // Update device status overlay
+  updateDeviceOverlayDisplay();
 }
 
 function showOverlay(text, persistent = false) {
@@ -998,7 +1018,7 @@ function showSkipIndicator(el) {
   el.classList.remove('show');
   void el.offsetWidth; // force reflow
   el.classList.add('show');
-  
+
   if (el._skipTimeout) clearTimeout(el._skipTimeout);
   el._skipTimeout = setTimeout(() => {
     el.classList.remove('show');
@@ -1012,7 +1032,7 @@ async function startYoutubeUpload() {
     console.warn('YouTube upload: no video to upload.');
     return;
   }
-  
+
   if (!accessToken) {
     console.warn('YouTube upload: no access token — user not signed in.');
     youtubeUploadBtn.textContent = 'Signing in...';
@@ -1028,7 +1048,7 @@ async function startYoutubeUpload() {
   youtubeUploadBtn.disabled = true;
   youtubeStatusEl.className = 'youtube-status';
   youtubeStatusEl.textContent = 'Preparing your video...';
-  
+
   if (youtubeProgressContainer) {
     youtubeProgressContainer.classList.remove('hidden');
     youtubeProgressBar.style.width = '0%';
@@ -1039,7 +1059,7 @@ async function startYoutubeUpload() {
     const blob = await res.blob();
     const mimeType = recordedFormat === 'mp4' ? 'video/mp4' : 'video/webm';
     await uploadVideoToYouTube(accessToken, blob, mimeType, title, privacy);
-    
+
     // Switch to success view
     youtubeFormView.classList.add('hidden');
     youtubeSuccessView.classList.remove('hidden');
@@ -1170,7 +1190,7 @@ function getSupportedMimeType(preferredFormat = 'mp4') {
       'video/webm'
     ];
   }
-  
+
   for (const t of types) {
     if (MediaRecorder.isTypeSupported(t)) return t;
   }
@@ -1239,10 +1259,10 @@ async function checkAndRestoreSession() {
       recordedFormat = data.format;
       if (objectUrl) URL.revokeObjectURL(objectUrl);
       objectUrl = URL.createObjectURL(data.blob);
-      
+
       playbackVideo.src = objectUrl;
       playbackVideo.load();
-    // Restore thumbnails
+      // Restore thumbnails
       generateThumbnails(data.blob);
 
       playbackVideo.onloadedmetadata = () => {
@@ -1253,7 +1273,7 @@ async function checkAndRestoreSession() {
         updateTimelineFromInputs();
         playbackVideo.onloadedmetadata = null;
       };
-      
+
       setState(STATE.PLAYBACK);
     }
   } catch (err) {
@@ -1272,10 +1292,10 @@ function initGoogleLogin() {
   }
 
   // Use injected ID or fallback to local window global
-  const clientId = (GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('__')) 
-    ? GOOGLE_CLIENT_ID 
+  const clientId = (GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith('__'))
+    ? GOOGLE_CLIENT_ID
     : (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '';
-    
+
   console.log('Initializing Google Login with Client ID:', clientId);
 
   tokenClient = google.accounts.oauth2.initTokenClient({
@@ -1309,31 +1329,31 @@ async function handleTokenResponse(response) {
     console.error('Token error:', response.error);
     return;
   }
-  
+
   accessToken = response.access_token;
-  
+
   try {
     // Fetch user info from Google's UserInfo API
     const res = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
       headers: { 'Authorization': `Bearer ${accessToken}` }
     });
-    
+
     if (!res.ok) throw new Error('Failed to fetch user info');
-    
+
     const payload = await res.json();
     userProfile = {
       name: payload.name,
       email: payload.email,
       picture: payload.picture
     };
-    
+
     // Persist profile in localStorage, token in sessionStorage
     localStorage.setItem('pm-user-profile', JSON.stringify(userProfile));
     localStorage.setItem('pm-login-timestamp', Date.now());
     sessionStorage.setItem('pm-access-token', accessToken);
-    
+
     updateAuthUI();
-    
+
     // Auto-resume upload if we were waiting for login in the YouTube modal
     if (!youtubeModal.classList.contains('hidden') && currentState === STATE.PLAYBACK) {
       startYoutubeUpload();
@@ -1355,7 +1375,7 @@ function checkAndRestoreAuth() {
     try {
       userProfile = JSON.parse(savedProfile);
       updateAuthUI();
-      
+
       if (savedToken && !isExpired) {
         accessToken = savedToken;
       } else {
@@ -1405,10 +1425,155 @@ function handleSignOut() {
   localStorage.removeItem('pm-login-timestamp');
   sessionStorage.removeItem('pm-access-token');
   updateAuthUI();
-  
+
   // Hide YouTube button if currently visible
   if (currentState === STATE.PLAYBACK) {
     setState(STATE.PLAYBACK);
+  }
+}
+
+// --- Device & Audio Level Overlay Logic ---
+
+function updateDeviceOverlayDisplay() {
+  const overlay = document.getElementById('device-status-overlay');
+  if (!overlay) return;
+
+  const hasStream = !!mediaStream;
+  const isIdleOrRecording = currentState === STATE.IDLE || currentState === STATE.RECORDING;
+
+  if (hasStream && isIdleOrRecording) {
+    overlay.classList.remove('hidden');
+    
+    // Update camera name
+    const cameraNameEl = document.getElementById('active-camera-name');
+    if (cameraNameEl && cameraSelect) {
+      const activeCameraLabel = cameraSelect.options[cameraSelect.selectedIndex]?.text || 'Default Camera';
+      cameraNameEl.textContent = activeCameraLabel;
+    }
+    
+    // Update mic name
+    const micNameEl = document.getElementById('active-mic-name');
+    if (micNameEl && micSelect) {
+      const activeMicLabel = micSelect.options[micSelect.selectedIndex]?.text || 'Default Microphone';
+      micNameEl.textContent = activeMicLabel;
+    }
+  } else {
+    overlay.classList.add('hidden');
+  }
+}
+
+function setupAudioLevelMeter(stream) {
+  // Clean up any existing analyzer loop
+  cleanupAudioLevelMeter();
+
+  if (!stream) return;
+  const audioTracks = stream.getAudioTracks();
+  if (audioTracks.length === 0) {
+    console.warn('Audio level visualizer: No audio tracks in active mediaStream.');
+    const micInfoEl = document.getElementById('active-mic-info');
+    if (micInfoEl) micInfoEl.style.color = 'var(--danger-color)';
+    updateAudioMeterUI(0);
+    return;
+  }
+  
+  const micInfoEl = document.getElementById('active-mic-info');
+  if (micInfoEl) micInfoEl.style.color = '';
+
+  try {
+    // Create or restore AudioContext
+    if (!audioCtx || audioCtx.state === 'closed') {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
+    analyserNode = audioCtx.createAnalyser();
+    analyserNode.fftSize = 256;
+    const bufferLength = analyserNode.frequencyBinCount;
+    const dataArray = new Uint8Array(bufferLength);
+
+    audioSourceNode = audioCtx.createMediaStreamSource(stream);
+    audioSourceNode.connect(analyserNode);
+
+    // Auto-resume AudioContext if suspended (browser autoplay policy)
+    if (audioCtx.state === 'suspended') {
+      // Try immediate resume first
+      audioCtx.resume().catch(() => {});
+
+      const resumeContext = () => {
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume().then(() => {
+            console.log('AudioContext successfully resumed on gesture.');
+          });
+        }
+        ['click', 'touchstart', 'mousedown', 'keydown'].forEach(evt => {
+          window.removeEventListener(evt, resumeContext);
+        });
+      };
+      ['click', 'touchstart', 'mousedown', 'keydown'].forEach(evt => {
+        window.addEventListener(evt, resumeContext, { passive: true });
+      });
+    }
+
+    const drawMeter = () => {
+      // Loop stops if we switch to playback, stop the stream, or analyzer is removed
+      if (currentState === STATE.PLAYBACK || !mediaStream || !analyserNode) {
+        updateAudioMeterUI(0);
+        return;
+      }
+
+      analyserNode.getByteTimeDomainData(dataArray);
+      
+      // Calculate RMS (Root Mean Square) volume level from Time-Domain PCM samples
+      let sum = 0;
+      for (let i = 0; i < bufferLength; i++) {
+        const amplitude = (dataArray[i] - 128) / 128; // Silence is 128, scale to -1.0 to 1.0
+        sum += amplitude * amplitude;
+      }
+      const rms = Math.sqrt(sum / bufferLength);
+      
+      // Normalize to progress bar percentage (0 - 100).
+      // A multiplier of 280-300 works incredibly well for normal speech sensitivity.
+      const percent = Math.min(100, Math.round(rms * 280));
+      updateAudioMeterUI(percent);
+
+      audioLevelAnimationId = requestAnimationFrame(drawMeter);
+    };
+
+    drawMeter();
+  } catch (err) {
+    console.warn('Could not initialize audio level visualizer:', err);
+  }
+}
+
+function cleanupAudioLevelMeter() {
+  if (audioLevelAnimationId) {
+    cancelAnimationFrame(audioLevelAnimationId);
+    audioLevelAnimationId = null;
+  }
+  if (audioSourceNode) {
+    try {
+      audioSourceNode.disconnect();
+    } catch (e) {}
+    audioSourceNode = null;
+  }
+  updateAudioMeterUI(0);
+}
+
+function updateAudioMeterUI(percent) {
+  const bar = document.getElementById('audio-level-bar');
+  if (!bar) return;
+
+  bar.style.width = `${percent}%`;
+  
+  // Transition styles for material design
+  if (percent < 55) {
+    bar.style.backgroundColor = 'var(--success-color, #10b981)';
+    bar.style.boxShadow = '0 0 8px rgba(16, 185, 129, 0.4)';
+  } else if (percent < 80) {
+    bar.style.backgroundColor = '#fbbf24'; // beautiful material warning amber
+    bar.style.boxShadow = '0 0 8px rgba(251, 191, 36, 0.4)';
+  } else {
+    bar.style.backgroundColor = 'var(--danger-color, #ef4444)'; // beautiful material error red
+    bar.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.6)';
   }
 }
 
