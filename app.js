@@ -187,23 +187,7 @@ async function init() {
 
     // Synchronization: If we have an active stream (from defaults or successful saved ID),
     // and the selector isn't matching it, update the selector to match reality.
-    if (mediaStream) {
-      const videoTrack = mediaStream.getVideoTracks()[0];
-      const audioTrack = mediaStream.getAudioTracks()[0];
-      const activeVideoId = videoTrack?.getSettings()?.deviceId;
-      const activeAudioId = audioTrack?.getSettings()?.deviceId;
-
-      if (activeVideoId && cameraSelect.value !== activeVideoId) {
-        if (Array.from(cameraSelect.options).some(opt => opt.value === activeVideoId)) {
-          cameraSelect.value = activeVideoId;
-        }
-      }
-      if (activeAudioId && micSelect.value !== activeAudioId) {
-        if (Array.from(micSelect.options).some(opt => opt.value === activeAudioId)) {
-          micSelect.value = activeAudioId;
-        }
-      }
-    }
+    syncSelectorsToActiveStream();
 
     if (mediaStream) {
       // Apply full selected resolution and constraints
@@ -215,7 +199,46 @@ async function init() {
     }
 
     navigator.mediaDevices.addEventListener('devicechange', async () => {
+      console.log('--- Media Device Change Detected ---');
+      const oldCameraValue = cameraSelect.value;
+      const oldMicValue = micSelect.value;
+      
       await populateDeviceSelectors();
+      
+      // Preserve previously selected devices if they still exist in the new options list
+      if (oldCameraValue && Array.from(cameraSelect.options).some(opt => opt.value === oldCameraValue)) {
+        cameraSelect.value = oldCameraValue;
+      }
+      if (oldMicValue && Array.from(micSelect.options).some(opt => opt.value === oldMicValue)) {
+        micSelect.value = oldMicValue;
+      }
+      
+      // Synchronize select values to the actually running stream tracks (if any)
+      syncSelectorsToActiveStream();
+      
+      // If the running microphone track has ended, or if the user's preferred mic has just been reconnected,
+      // let's restart the camera/mic to reconnect audio and update visualizer!
+      const audioTrack = mediaStream?.getAudioTracks()[0];
+      const hasEnded = audioTrack?.readyState === 'ended';
+      
+      // Also check if the reconnected preferred mic is now available
+      const savedMicId = localStorage.getItem('pm-mic-id');
+      const preferredMicNowAvailable = savedMicId && savedMicId !== micSelect.value && 
+                                       Array.from(micSelect.options).some(opt => opt.value === savedMicId);
+
+      if (hasEnded || preferredMicNowAvailable) {
+        console.log('Active audio track ended or preferred mic reconnected. Re-initializing camera...');
+        if (preferredMicNowAvailable && savedMicId) {
+          micSelect.value = savedMicId;
+        }
+        await startCamera();
+      } else {
+        // Just refresh the HUD overlays
+        updateDeviceOverlayDisplay();
+        if (mediaStream) {
+          setupAudioLevelMeter(mediaStream);
+        }
+      }
     });
 
     // Check for existing session recording
@@ -1429,6 +1452,25 @@ function handleSignOut() {
   // Hide YouTube button if currently visible
   if (currentState === STATE.PLAYBACK) {
     setState(STATE.PLAYBACK);
+  }
+}
+
+function syncSelectorsToActiveStream() {
+  if (!mediaStream) return;
+  const videoTrack = mediaStream.getVideoTracks()[0];
+  const audioTrack = mediaStream.getAudioTracks()[0];
+  const activeVideoId = videoTrack?.getSettings()?.deviceId;
+  const activeAudioId = audioTrack?.getSettings()?.deviceId;
+
+  if (activeVideoId && cameraSelect && cameraSelect.value !== activeVideoId) {
+    if (Array.from(cameraSelect.options).some(opt => opt.value === activeVideoId)) {
+      cameraSelect.value = activeVideoId;
+    }
+  }
+  if (activeAudioId && micSelect && micSelect.value !== activeAudioId) {
+    if (Array.from(micSelect.options).some(opt => opt.value === activeAudioId)) {
+      micSelect.value = activeAudioId;
+    }
   }
 }
 
