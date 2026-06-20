@@ -873,6 +873,12 @@ async function processVideo() {
       updateTimelineFromInputs();
       generateThumbnails(processedBlob);
       showToast('Processing complete', 'success');
+      
+      // Close the edit UI
+      editBtn.setAttribute('aria-expanded', 'false');
+      editingPanel.hidden = true;
+      editingTools.classList.remove('editing-tools--expanded');
+      
       playbackVideo.onloadedmetadata = null;
     };
 
