@@ -198,48 +198,50 @@ async function init() {
       updatePreviewUI();
     }
 
-    navigator.mediaDevices.addEventListener('devicechange', async () => {
-      console.log('--- Media Device Change Detected ---');
-      const oldCameraValue = cameraSelect.value;
-      const oldMicValue = micSelect.value;
-      
-      await populateDeviceSelectors();
-      
-      // Preserve previously selected devices if they still exist in the new options list
-      if (oldCameraValue && Array.from(cameraSelect.options).some(opt => opt.value === oldCameraValue)) {
-        cameraSelect.value = oldCameraValue;
-      }
-      if (oldMicValue && Array.from(micSelect.options).some(opt => opt.value === oldMicValue)) {
-        micSelect.value = oldMicValue;
-      }
-      
-      // Synchronize select values to the actually running stream tracks (if any)
-      syncSelectorsToActiveStream();
-      
-      // If the running microphone track has ended, or if the user's preferred mic has just been reconnected,
-      // let's restart the camera/mic to reconnect audio and update visualizer!
-      const audioTrack = mediaStream?.getAudioTracks()[0];
-      const hasEnded = audioTrack?.readyState === 'ended';
-      
-      // Also check if the reconnected preferred mic is now available
-      const savedMicId = localStorage.getItem('pm-mic-id');
-      const preferredMicNowAvailable = savedMicId && savedMicId !== micSelect.value && 
-                                       Array.from(micSelect.options).some(opt => opt.value === savedMicId);
+    if (navigator.mediaDevices) {
+      navigator.mediaDevices.addEventListener('devicechange', async () => {
+        console.log('--- Media Device Change Detected ---');
+        const oldCameraValue = cameraSelect.value;
+        const oldMicValue = micSelect.value;
+        
+        await populateDeviceSelectors();
+        
+        // Preserve previously selected devices if they still exist in the new options list
+        if (oldCameraValue && Array.from(cameraSelect.options).some(opt => opt.value === oldCameraValue)) {
+          cameraSelect.value = oldCameraValue;
+        }
+        if (oldMicValue && Array.from(micSelect.options).some(opt => opt.value === oldMicValue)) {
+          micSelect.value = oldMicValue;
+        }
+        
+        // Synchronize select values to the actually running stream tracks (if any)
+        syncSelectorsToActiveStream();
+        
+        // If the running microphone track has ended, or if the user's preferred mic has just been reconnected,
+        // let's restart the camera/mic to reconnect audio and update visualizer!
+        const audioTrack = mediaStream?.getAudioTracks()[0];
+        const hasEnded = audioTrack?.readyState === 'ended';
+        
+        // Also check if the reconnected preferred mic is now available
+        const savedMicId = localStorage.getItem('pm-mic-id');
+        const preferredMicNowAvailable = savedMicId && savedMicId !== micSelect.value && 
+                                         Array.from(micSelect.options).some(opt => opt.value === savedMicId);
 
-      if (hasEnded || preferredMicNowAvailable) {
-        console.log('Active audio track ended or preferred mic reconnected. Re-initializing camera...');
-        if (preferredMicNowAvailable && savedMicId) {
-          micSelect.value = savedMicId;
+        if (hasEnded || preferredMicNowAvailable) {
+          console.log('Active audio track ended or preferred mic reconnected. Re-initializing camera...');
+          if (preferredMicNowAvailable && savedMicId) {
+            micSelect.value = savedMicId;
+          }
+          await startCamera();
+        } else {
+          // Just refresh the HUD overlays
+          updateDeviceOverlayDisplay();
+          if (mediaStream) {
+            setupAudioLevelMeter(mediaStream);
+          }
         }
-        await startCamera();
-      } else {
-        // Just refresh the HUD overlays
-        updateDeviceOverlayDisplay();
-        if (mediaStream) {
-          setupAudioLevelMeter(mediaStream);
-        }
-      }
-    });
+      });
+    }
 
     // Check for existing session recording
     await checkAndRestoreSession();
@@ -255,6 +257,10 @@ async function init() {
 }
 
 async function populateDeviceSelectors() {
+  if (!navigator.mediaDevices) {
+    console.warn('navigator.mediaDevices is not supported. Skipping populating device selectors.');
+    return;
+  }
   const devices = await navigator.mediaDevices.enumerateDevices();
 
   const videoInput = devices.filter(d => d.kind === 'videoinput');
@@ -315,6 +321,10 @@ function updatePreviewUI() {
 }
 
 async function startCamera() {
+  if (!navigator.mediaDevices) {
+    console.warn('navigator.mediaDevices is not supported. Cannot start camera.');
+    return;
+  }
   if (mediaStream) {
     mediaStream.getTracks().forEach(track => track.stop());
   }
@@ -431,10 +441,10 @@ function setupEventListeners() {
     }
   });
 
-  discardBtn.addEventListener('click', () => {
+  discardBtn.addEventListener('click', async () => {
     if (currentState === STATE.PLAYBACK) {
       cleanupPlayback();
-      setState(STATE.IDLE);
+      await startCamera();
     }
   });
 
@@ -1022,6 +1032,13 @@ function setState(newState) {
     editingTools.classList.remove('editing-tools--expanded');
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
     clearInterval(recordingTimer);
+
+    // Release camera and microphone stream to save battery
+    if (mediaStream) {
+      mediaStream.getTracks().forEach(track => track.stop());
+      mediaStream = null;
+      cleanupAudioLevelMeter();
+    }
   }
 
   // Ensure preview UI (like 'Pause Preview' button) updates for all states
@@ -1325,6 +1342,11 @@ function initGoogleLogin() {
     ? GOOGLE_CLIENT_ID
     : (typeof window !== 'undefined' && window.__GOOGLE_CLIENT_ID__) ? window.__GOOGLE_CLIENT_ID__ : '';
 
+  if (!clientId) {
+    console.warn('Google Client ID is missing. YouTube upload features will be disabled.');
+    return;
+  }
+
   console.log('Initializing Google Login with Client ID:', clientId);
 
   tokenClient = google.accounts.oauth2.initTokenClient({
@@ -1561,12 +1583,25 @@ function setupAudioLevelMeter(stream) {
       });
     }
 
-    const drawMeter = () => {
+    let lastDrawTime = 0;
+    const fpsInterval = 1000 / 30; // Throttle to 30 FPS
+
+    const drawMeter = (timestamp) => {
       // Loop stops if we switch to playback, stop the stream, or analyzer is removed
       if (currentState === STATE.PLAYBACK || !mediaStream || !analyserNode) {
         updateAudioMeterUI(0);
         return;
       }
+
+      audioLevelAnimationId = requestAnimationFrame(drawMeter);
+
+      if (!timestamp) timestamp = performance.now();
+      const elapsed = timestamp - lastDrawTime;
+
+      if (elapsed < fpsInterval) {
+        return;
+      }
+      lastDrawTime = timestamp - (elapsed % fpsInterval);
 
       analyserNode.getByteTimeDomainData(dataArray);
       
@@ -1582,8 +1617,6 @@ function setupAudioLevelMeter(stream) {
       // A multiplier of 280-300 works incredibly well for normal speech sensitivity.
       const percent = Math.min(100, Math.round(rms * 280));
       updateAudioMeterUI(percent);
-
-      audioLevelAnimationId = requestAnimationFrame(drawMeter);
     };
 
     drawMeter();
