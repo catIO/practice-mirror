@@ -92,6 +92,10 @@ const trimEndDisplay = document.getElementById('trim-end-display');
 const youtubeModal = document.getElementById('youtube-modal');
 const youtubeFormView = document.getElementById('youtube-form-view');
 const youtubeSuccessView = document.getElementById('youtube-success-view');
+
+// Edit button icon SVGs
+const EDIT_ICON = `<svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" viewBox="0 -960 960 960" fill="currentColor"><path d="M200-200h57l391-391-57-57-391 391v57Zm-80 80v-170l528-527q12-11 26.5-17t30.5-6q16 0 31 6t26 18l55 56q12 11 17.5 26t5.5 30q0 16-5.5 30.5T817-647L290-120H120Zm640-584-56-56 56 56Zm-141 85-28-29 57 57-29-28Z"/></svg>`;
+const CLOSE_ICON = `<svg xmlns="http://www.w3.org/2000/svg" height="24" width="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>`;
 const youtubeDoneBtn = document.getElementById('youtube-done-btn');
 const closeYoutubeBtn = document.getElementById('close-youtube-btn');
 const youtubeTitleInput = document.getElementById('youtube-title');
@@ -541,6 +545,8 @@ function setupEventListeners() {
   editBtn.addEventListener('click', () => {
     const expanded = editBtn.getAttribute('aria-expanded') === 'true';
     editBtn.setAttribute('aria-expanded', !expanded);
+    editBtn.setAttribute('aria-label', expanded ? 'Edit video' : 'Close edit pane');
+    editBtn.innerHTML = expanded ? EDIT_ICON : CLOSE_ICON;
     editingPanel.hidden = expanded;
     editingTools.classList.toggle('editing-tools--expanded', !expanded);
   });
@@ -1003,6 +1009,7 @@ async function processVideo() {
       
       // Close the edit UI
       editBtn.setAttribute('aria-expanded', 'false');
+      editBtn.innerHTML = EDIT_ICON;
       editingPanel.hidden = true;
       editingTools.classList.remove('editing-tools--expanded');
       
@@ -1146,6 +1153,7 @@ function setState(newState) {
     editBtn.classList.remove('hidden');
     editingTools.classList.remove('hidden');
     editBtn.setAttribute('aria-expanded', 'false');
+    editBtn.innerHTML = EDIT_ICON;
     editingPanel.hidden = true;
     editingTools.classList.remove('editing-tools--expanded');
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';

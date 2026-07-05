@@ -653,6 +653,13 @@ select option {
   transform: scale(1.05);
 }
 
+/* Edit button — active state when panel is open */
+#edit-btn[aria-expanded="true"] {
+  background: var(--accent-color);
+  box-shadow: var(--shadow-glow);
+  color: #fff;
+}
+
 .action-btn.primary {
   background: var(--accent-color);
   box-shadow: var(--shadow-glow);
