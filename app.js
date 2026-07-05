@@ -85,6 +85,10 @@ const seekbarThumb = document.getElementById('seekbar-thumb');
 const seekCurrentTime = document.getElementById('seek-current-time');
 const seekDuration = document.getElementById('seek-duration');
 
+// Trim time display spans
+const trimStartDisplay = document.getElementById('trim-start-display');
+const trimEndDisplay = document.getElementById('trim-end-display');
+
 const youtubeModal = document.getElementById('youtube-modal');
 const youtubeFormView = document.getElementById('youtube-form-view');
 const youtubeSuccessView = document.getElementById('youtube-success-view');
@@ -840,9 +844,6 @@ function setupTrimTimeline() {
     // Click on timeline now only seeks the video
     playbackVideo.currentTime = percent * dur;
   });
-
-  trimStart.addEventListener('input', updateTimelineFromInputs);
-  trimEnd.addEventListener('input', updateTimelineFromInputs);
 }
 
 async function generateThumbnails(blob) {
@@ -895,6 +896,9 @@ function updateTimelineFromInputs() {
   trimHandleEnd.style.left = `${endPct}%`;
   trimActiveRange.style.left = `${startPct}%`;
   trimActiveRange.style.width = `${endPct - startPct}%`;
+
+  if (trimStartDisplay) trimStartDisplay.textContent = formatTime(start);
+  if (trimEndDisplay) trimEndDisplay.textContent = formatTime(end);
 }
 
 async function cleanupPlayback() {

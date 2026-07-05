@@ -386,7 +386,7 @@ video {
   flex: 1;
   height: 4px;
   background: rgba(255, 255, 255, 0.12);
-  border-radius: 4px;
+  border-radius: 9999px;
   position: relative;
   cursor: pointer;
   /* Increase hit-target without changing visual height */
@@ -400,7 +400,7 @@ video {
   left: 0;
   height: 4px;
   background: rgba(255, 255, 255, 0.18);
-  border-radius: 4px;
+  border-radius: 9999px;
   width: 0%;
   pointer-events: none;
 }
@@ -411,7 +411,7 @@ video {
   left: 0;
   height: 4px;
   background: var(--accent-color, #6c63ff);
-  border-radius: 4px;
+  border-radius: 9999px;
   width: 0%;
   pointer-events: none;
 }
@@ -894,6 +894,27 @@ select option {
   width: 100%;
   box-sizing: border-box;
 }
+
+.trim-time-display {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  padding: 0 2px;
+}
+
+.trim-time-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
+}
+
+.trim-time-label span {
+  color: var(--text-primary);
+  opacity: 0.85;
+  font-weight: 500;
+}
+
 
 .mdc-label {
   font-size: 0.75rem;
