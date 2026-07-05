@@ -40,7 +40,7 @@
     <main class="viewport-section">
       <div id="video-container" class="video-container glass-panel">
         <video id="live-video" autoplay playsinline muted></video>
-        <video id="playback-video" playsinline controls class="hidden"></video>
+        <video id="playback-video" playsinline class="hidden"></video>
         <!-- Skip Indicators -->
         <div id="skip-indicator-left" class="skip-indicator skip-left">
           <div class="skip-circle"><span>-5</span></div>
@@ -100,6 +100,16 @@
     </main>
 
     <div class="controls-section glass-panel-bottom">
+      <!-- Seek Bar (shown in PLAYBACK state) -->
+      <div id="seekbar-row" class="seekbar-row hidden">
+        <span id="seek-current-time" class="seek-time">0:00</span>
+        <div id="seekbar-track" class="seekbar-track">
+          <div id="seekbar-buffered" class="seekbar-buffered"></div>
+          <div id="seekbar-progress" class="seekbar-progress"></div>
+          <div id="seekbar-thumb" class="seekbar-thumb"></div>
+        </div>
+        <span id="seek-duration" class="seek-time">0:00</span>
+      </div>
       <div class="primary-actions">
         <!-- Revert / Delete Button -->
         <button id="discard-btn" class="action-btn secondary hidden" aria-label="Discard recording">

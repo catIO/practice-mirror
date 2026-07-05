@@ -75,6 +75,16 @@ const trimActiveRange = document.getElementById('trim-active-range');
 const trimFilmstrip = document.getElementById('trim-filmstrip');
 const processBtn = document.getElementById('process-btn');
 let snackbarContainer;
+
+// Seek Bar elements
+const seekbarRow = document.getElementById('seekbar-row');
+const seekbarTrack = document.getElementById('seekbar-track');
+const seekbarProgress = document.getElementById('seekbar-progress');
+const seekbarBuffered = document.getElementById('seekbar-buffered');
+const seekbarThumb = document.getElementById('seekbar-thumb');
+const seekCurrentTime = document.getElementById('seek-current-time');
+const seekDuration = document.getElementById('seek-duration');
+
 const youtubeModal = document.getElementById('youtube-modal');
 const youtubeFormView = document.getElementById('youtube-form-view');
 const youtubeSuccessView = document.getElementById('youtube-success-view');
@@ -520,6 +530,7 @@ function setupEventListeners() {
   });
 
   setupTrimTimeline();
+  setupSeekBar();
 
   processBtn.addEventListener('click', processVideo);
 
@@ -658,6 +669,108 @@ async function switchToPlayback() {
   };
 
   setState(STATE.PLAYBACK);
+}
+
+function formatTime(seconds) {
+  if (!isFinite(seconds)) return '0:00';
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function setupSeekBar() {
+  let isSeeking = false;
+
+  function getSeekPercent(clientX) {
+    const rect = seekbarTrack.getBoundingClientRect();
+    return Math.max(0, Math.min((clientX - rect.left) / rect.width, 1));
+  }
+
+  function applyPercent(percent) {
+    seekbarProgress.style.width = `${percent * 100}%`;
+    seekbarThumb.style.left = `${percent * 100}%`;
+  }
+
+  function seekTo(clientX) {
+    const dur = playbackVideo.duration;
+    if (!dur || !isFinite(dur)) return;
+    const percent = getSeekPercent(clientX);
+    playbackVideo.currentTime = percent * dur;
+    applyPercent(percent);
+    seekCurrentTime.textContent = formatTime(percent * dur);
+  }
+
+  // Update bar and time display as video plays
+  playbackVideo.addEventListener('timeupdate', () => {
+    const dur = playbackVideo.duration;
+    if (!dur || !isFinite(dur) || isSeeking) return;
+    const percent = playbackVideo.currentTime / dur;
+    applyPercent(percent);
+    seekCurrentTime.textContent = formatTime(playbackVideo.currentTime);
+
+    // Update buffered
+    if (playbackVideo.buffered.length > 0) {
+      const bufferedEnd = playbackVideo.buffered.end(playbackVideo.buffered.length - 1);
+      seekbarBuffered.style.width = `${(bufferedEnd / dur) * 100}%`;
+    }
+  });
+
+  // Set duration display when metadata is available
+  playbackVideo.addEventListener('loadedmetadata', () => {
+    seekDuration.textContent = formatTime(playbackVideo.duration);
+    seekCurrentTime.textContent = '0:00';
+    applyPercent(0);
+  });
+
+  // Sync play/pause button icon with video state (e.g. clicking the video body)
+  playbackVideo.addEventListener('play', () => {
+    if (currentState !== STATE.PLAYBACK) return;
+    playBtn.setAttribute('aria-label', 'Pause Recording');
+    playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+  });
+
+  playbackVideo.addEventListener('pause', () => {
+    if (currentState !== STATE.PLAYBACK) return;
+    playBtn.setAttribute('aria-label', 'Play Recording');
+    playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
+  });
+
+  // Mouse drag-to-seek
+  seekbarTrack.addEventListener('mousedown', (e) => {
+    if (currentState !== STATE.PLAYBACK) return;
+    isSeeking = true;
+    seekbarTrack.classList.add('seeking');
+    seekTo(e.clientX);
+
+    const onMove = (e) => seekTo(e.clientX);
+    const onUp = () => {
+      isSeeking = false;
+      seekbarTrack.classList.remove('seeking');
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+
+  // Touch drag-to-seek
+  seekbarTrack.addEventListener('touchstart', (e) => {
+    if (currentState !== STATE.PLAYBACK) return;
+    e.preventDefault();
+    isSeeking = true;
+    seekbarTrack.classList.add('seeking');
+    seekTo(e.touches[0].clientX);
+
+    const onMove = (e) => { e.preventDefault(); seekTo(e.touches[0].clientX); };
+    const onEnd = () => {
+      isSeeking = false;
+      seekbarTrack.classList.remove('seeking');
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onEnd);
+    };
+    document.addEventListener('touchmove', onMove, { passive: false });
+    document.addEventListener('touchend', onEnd);
+  }, { passive: false });
 }
 
 function setupTrimTimeline() {
@@ -988,6 +1101,7 @@ function setState(newState) {
   playbackVideo.classList.add('hidden');
   recordingIndicator.classList.add('hidden');
   stateOverlay.classList.add('hidden');
+  seekbarRow.classList.add('hidden');
 
   if (newState === STATE.IDLE) {
     recordBtn.classList.remove('hidden');
@@ -1031,6 +1145,7 @@ function setState(newState) {
     editingPanel.hidden = true;
     editingTools.classList.remove('editing-tools--expanded');
     playBtn.innerHTML = '<svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>';
+    seekbarRow.classList.remove('hidden');
     clearInterval(recordingTimer);
 
     // Release camera and microphone stream to save battery
