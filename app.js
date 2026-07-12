@@ -1488,12 +1488,14 @@ function initGoogleLogin() {
 }
 
 function requestLogin() {
+  const state = Math.random().toString(36).substring(2, 15);
+  sessionStorage.setItem('pm-oauth-state', state);
   if (tokenClient) {
-    tokenClient.requestAccessToken();
+    tokenClient.requestAccessToken({ state: state });
   } else {
     initGoogleLogin();
     if (tokenClient) {
-      tokenClient.requestAccessToken();
+      tokenClient.requestAccessToken({ state: state });
     } else {
       console.error('Google login failed: tokenClient could not be initialized.');
       showOverlay('Authentication initialization failed.');
@@ -1505,6 +1507,13 @@ function requestLogin() {
 async function handleTokenResponse(response) {
   if (response.error !== undefined) {
     console.error('Token error:', response.error);
+    return;
+  }
+
+  const savedState = sessionStorage.getItem('pm-oauth-state');
+  if (!response.state || response.state !== savedState) {
+    console.error('OAuth state mismatch. Possible CSRF attack.');
+    showOverlay('Authentication security check failed.');
     return;
   }
 
