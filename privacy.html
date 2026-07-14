@@ -65,12 +65,24 @@
             <!-- Practice Mirror (YouTube) -->
             <div class="border-l-4 border-purple-500 pl-4 py-1">
               <h3 class="text-xl font-semibold text-white mb-2">Practice Mirror (YouTube Integration)</h3>
-              <p class="text-gray-300 leading-relaxed mb-2">
-                <strong>How it uses Google Auth:</strong> Practice Mirror requests permission to upload videos to your YouTube account (<code class="text-purple-300">youtube.upload</code> scope). This allows you to upload practice recording sessions directly to your channel.
-              </p>
-              <p class="text-gray-300 leading-relaxed">
-                <strong>Data Storage & Privacy:</strong> We do not store, collect, or share your YouTube login credentials, channel data, or videos. All OAuth authentication and video uploads occur directly client-side between your browser and Google's servers. No third-party servers are used to store or access your video files.
-              </p>
+              
+              <div class="space-y-4 text-gray-300">
+                <p>
+                  <strong>Data Access & Collection:</strong> Practice Mirror requests OAuth permission to access your YouTube account to perform video uploads (<code class="text-purple-300">youtube.upload</code> scope). We do not collect, read, or process any other personal information or channel files.
+                </p>
+                <p>
+                  <strong>Data Usage:</strong> We use your Google account access and YouTube credentials solely to upload the practice recording video file directly to your channel as requested. We do not use your data for advertising, analytics, or any other business purpose.
+                </p>
+                <p>
+                  <strong>Data Sharing & Transfers:</strong> We do not share, transfer, or disclose any Google user data or YouTube upload information to third parties. All authentication details and uploads are processed directly client-side in your browser.
+                </p>
+                <p>
+                  <strong>Data Retention & Deletion:</strong> We do not store or retain any Google user data or recording files on any external servers. The video file is held temporarily in the browser's local memory during the active upload session and is immediately deleted when the upload completes or the browser tab is closed.
+                </p>
+                <p>
+                  <strong>Security & Protection:</strong> Security procedures are in place to protect the confidentiality of your data. All communication between the application, your browser, and Google APIs is fully encrypted in transit using industry-standard Secure Socket Layer (SSL/HTTPS) encryption.
+                </p>
+              </div>
             </div>
           </div>
         </div>
