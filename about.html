@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>About - Practice Mirror</title>
+    <meta name="description" content="About Practice Mirror - a Practice Mate tool for musicians." />
+    <style>
+      body {
+        background: radial-gradient(circle at 80% 20%, #110624 0%, #040507 65%, #000000 100%);
+        color: #f8fafc;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+        margin: 0;
+        padding: 0;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        line-height: 1.6;
+      }
+      .container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 60px 24px;
+        flex-grow: 1;
+      }
+      .header {
+        text-align: center;
+        margin-bottom: 48px;
+      }
+      .header svg {
+        color: #c084fc;
+        margin: 0 auto 16px auto;
+        display: block;
+      }
+      .header h1 {
+        font-size: 2.5rem;
+        margin: 0 0 8px 0;
+        color: #ffffff;
+        font-weight: 700;
+      }
+      .header p {
+        color: #a855f7;
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 500;
+      }
+      .card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 32px;
+        margin-bottom: 32px;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+      .card p {
+        margin: 0 0 16px 0;
+      }
+      .card p:last-child {
+        margin-bottom: 0;
+      }
+      .feature-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+        margin-bottom: 32px;
+      }
+      @media (min-width: 640px) {
+        .feature-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .feature-card {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 24px;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+      .feature-title-row {
+        display: flex;
+        align-items: center;
+        margin-bottom: 12px;
+      }
+      .feature-title-row svg {
+        color: #c084fc;
+        margin-right: 12px;
+        flex-shrink: 0;
+      }
+      .feature-title-row h3 {
+        font-size: 1.2rem;
+        margin: 0;
+        color: #ffffff;
+        font-weight: 600;
+      }
+      .feature-card p {
+        color: #9ca3af;
+        font-size: 0.95rem;
+        margin: 0;
+      }
+      .promo-banner {
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 20px;
+        padding: 32px;
+        text-align: center;
+        margin-bottom: 32px;
+        backdrop-filter: blur(16px);
+        -webkit-backdrop-filter: blur(16px);
+      }
+      .promo-banner h2 {
+        font-size: 1.5rem;
+        color: #ffffff;
+        margin-top: 0;
+        margin-bottom: 12px;
+        font-weight: 700;
+      }
+      .promo-banner p {
+        color: #d8b4fe;
+        margin-bottom: 24px;
+      }
+      a {
+        color: #c084fc;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      a:focus-visible, 
+      button:focus-visible {
+        outline: 2px solid #c084fc;
+        outline-offset: 4px;
+        border-radius: 4px;
+      }
+      .nav-links {
+        margin-top: 48px;
+        text-align: center;
+        display: flex;
+        justify-content: center;
+        gap: 16px;
+      }
+      .nav-links a {
+        color: #9ca3af;
+        padding: 12px 8px; /* Tap target compliance */
+        display: inline-block;
+        font-size: 0.875rem;
+      }
+      .nav-links a:hover {
+        color: #c084fc;
+      }
+      footer {
+        background-color: rgba(0, 0, 0, 0.4);
+        border-top: 1px solid #1f2937;
+        padding: 24px;
+        text-align: center;
+        font-size: 0.875rem;
+        color: #6b7280;
+      }
+      footer a {
+        color: #6b7280;
+      }
+      footer a:hover {
+        color: #c084fc;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <!-- Header -->
+      <div class="header">
+        <svg width="64" height="64" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+        </svg>
+        <h1>About Practice Mirror</h1>
+        <p>Part of the Practice Mate Suite of Tools for Musicians</p>
+      </div>
+
+      <!-- App Overview -->
+      <div class="card">
+        <p style="font-size: 1.1rem; line-height: 1.7; color: #f3f4f6; margin-bottom: 12px;">
+          <strong>Practice Mirror</strong> is a web-based tool designed to help musicians record practice sessions for instant self-evaluations or for sharing with a teacher via direct YouTube uploads.
+        </p>
+        <p style="font-size: 1.05rem; line-height: 1.7; color: #e5e7eb; margin: 0;">
+          By acting as a virtual, latency-free mirror, it lets you monitor instrument positioning, posture, and play mechanics in real-time, record performance clips locally, and securely upload them directly to your YouTube channel to share with instructors.
+        </p>
+      </div>
+
+      <!-- Key Features Grid -->
+      <div class="feature-grid">
+        <div class="feature-card">
+          <div class="feature-title-row">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+            </svg>
+            <h3>Latency-Free Recording</h3>
+          </div>
+          <p>
+            Capture your practice sessions with high-performance audio and video feeds directly in your browser. Recordings are generated entirely locally on your device for instant self-evaluation.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-title-row">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+            </svg>
+            <h3>YouTube Integration</h3>
+          </div>
+          <p>
+            Integrate with your YouTube channel through secure Google Identity Services to upload recordings seamlessly. Great for sharing lessons with teachers or maintaining a public practice log.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-title-row">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <h3>Privacy by Design</h3>
+          </div>
+          <p>
+            We never run analytics, track your sessions, or upload your videos to our servers. Your camera stream, microphone, and video files stay on your device at all times.
+          </p>
+        </div>
+
+        <div class="feature-card">
+          <div class="feature-title-row">
+            <svg width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <h3>Offline-First Utility</h3>
+          </div>
+          <p>
+            Designed as a Progressive Web App (PWA), Practice Mirror works flawlessly offline once loaded, ensuring you can practice even in rooms with poor internet reception.
+          </p>
+        </div>
+      </div>
+
+      <!-- Part of Practice Mate -->
+      <div class="promo-banner">
+        <h2>The Practice Mate Ecosystem</h2>
+        <p>
+          Practice Mirror is a member of the <strong>Practice Mate</strong> project—a collection of open, privacy-focused, zero-tracker utilities built to empower musicians' practice routines.
+        </p>
+        <a 
+          href="https://practice-mate.app/" 
+          target="_blank" 
+          rel="noopener noreferrer" 
+          style="display: inline-block; background-color: #7c3aed; color: #ffffff; font-weight: 600; padding: 12px 24px; border-radius: 8px; transition: background-color 0.2s;"
+          onmouseover="this.style.backgroundColor='#6d28d9'"
+          onmouseout="this.style.backgroundColor='#7c3aed'"
+        >
+          Explore Practice Mate Tools
+        </a>
+      </div>
+
+      <!-- Links Navigation -->
+      <div class="nav-links">
+        <a href="/index.html">Home</a>
+        <span>•</span>
+        <a href="/terms.html">Terms of Service</a>
+        <span>•</span>
+        <a href="/privacy.html">Privacy Policy</a>
+      </div>
+    </div>
+
+    <footer>
+      &copy; 2026 Practice Mirror. Part of the <a href="https://practice-mate.app/" target="_blank" rel="noopener noreferrer">Practice Mate</a> suite. All rights reserved.
+    </footer>
+  </body>
+</html>

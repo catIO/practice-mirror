@@ -1,6 +1,6 @@
 :root {
-  --bg-color: #1a1c23;
-  --bg-gradient: linear-gradient(135deg, #16181d 0%, #1a1c23 100%);
+  --bg-color: #040507;
+  --bg-gradient: radial-gradient(circle at 80% 20%, #110624 0%, #040507 65%, #000000 100%);
   --panel-bg: rgba(255, 255, 255, 0.08);
   --panel-border: rgba(255, 255, 255, 0.12);
   --text-primary: #f8fafc;
@@ -47,7 +47,9 @@ body {
 }
 
 .glass-panel-bottom {
-  background: #252830;
+  background: rgba(22, 24, 30, 0.65);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border: 1px solid var(--panel-border);
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
 }
@@ -640,6 +642,16 @@ select option {
 .record-btn:hover::after {
   opacity: 1;
   visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* Position tooltips inside the header below the buttons to prevent screen cut-off */
+.app-header .icon-btn::after {
+  bottom: auto;
+  top: 115%;
+  transform: translateX(-50%) translateY(-4px);
+}
+.app-header .icon-btn:hover::after {
   transform: translateX(-50%) translateY(0);
 }
 
@@ -1678,4 +1690,36 @@ select option {
   .audio-meter-label {
     font-size: 8px;
   }
+}
+
+/* App Footer (Google Compliance) */
+.app-footer {
+  text-align: center;
+  padding: 8px 0 16px 0;
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  z-index: 10;
+}
+.app-footer a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 12px 8px; /* Tap target compliance */
+  display: inline-block;
+  font-size: 12px;
+  transition: color var(--transition-fast);
+}
+.app-footer a:hover {
+  color: var(--color-accent, #bf5af2);
+  text-decoration: underline;
+}
+
+/* Custom focus states for keyboard users (Material 3 standard) */
+a:focus-visible, 
+button:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: 2px solid var(--color-accent, #bf5af2);
+  outline-offset: 4px;
+  border-radius: 4px;
 }

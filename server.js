@@ -2,7 +2,6 @@ const http = require('http');
 const https = require('https');
 const fs = require('fs');
 const path = require('path');
-const url = require('url');
 
 const MIME_TYPES = {
   '.html': 'text/html',
@@ -35,10 +34,10 @@ function proxyYouTubeUpload(req, body, res) {
 
   // --- Step 2: Handle Chunk Upload (PUT with X-Upload-Url) ---
   if (req.method === 'PUT' && uploadUrl) {
-    const parsed = url.parse(uploadUrl);
+    const parsed = new URL(uploadUrl);
     const putOpts = {
       hostname: parsed.hostname,
-      path: parsed.path,
+      path: parsed.pathname + parsed.search,
       method: 'PUT',
       headers: {
         'Authorization': auth,
@@ -102,10 +101,10 @@ function proxyYouTubeUpload(req, body, res) {
 
     // If client provided a full body in the POST, upload it immediately (Legacy/Small files)
     if (body && body.length > 0 && !totalSize) {
-      const parsed = url.parse(sessionUrl);
+      const parsed = new URL(sessionUrl);
       const putOpts = {
         hostname: parsed.hostname,
-        path: parsed.path,
+        path: parsed.pathname + parsed.search,
         method: 'PUT',
         headers: {
           'Authorization': auth,
@@ -155,8 +154,8 @@ function serveFile(filePath, res) {
   });
 }
 
-http.createServer((req, res) => {
-  const pathname = url.parse(req.url).pathname;
+const server = http.createServer((req, res) => {
+  const pathname = new URL(req.url, 'http://localhost').pathname;
 
   if ((req.method === 'POST' || req.method === 'PUT') && pathname === '/api/youtube-upload') {
     const chunks = [];
@@ -173,5 +172,9 @@ http.createServer((req, res) => {
 
   let filePath = '.' + (pathname === '/' ? '/index.html' : pathname);
   serveFile(filePath, res);
-}).listen(8085, '127.0.0.1');
-console.log('Server running at http://127.0.0.1:8085/');
+});
+
+const PORT = process.env.PORT || 8085;
+server.listen(PORT, '127.0.0.1', () => {
+  console.log(`Server running at http://127.0.0.1:${PORT}/`);
+});

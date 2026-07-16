@@ -14,7 +14,7 @@
   <title>Practice Mirror</title>
 
   <!-- Offline First: System Fonts & Inline SVGs used instead of external assets -->
-  <link rel="stylesheet" href="style.css?v=v20260427112935">
+  <link rel="stylesheet" href="style.css?v=v20260716091100">
 </head>
 
 <body class="dark-theme">
@@ -206,6 +206,12 @@
       </div>
     </div>
 
+    <footer class="app-footer">
+      <a href="/about.html" target="_blank" rel="noopener noreferrer">About</a>
+      <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+      <a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms of Service</a>
+    </footer>
+
     <!-- Modal Overlay and Settings Modal at app level to prevent cut off -->
     <div class="modal-overlay hidden" id="modal-overlay"></div>
     <div class="settings-modal hidden glass-panel" id="settings-modal">
@@ -241,7 +247,8 @@
             </button>
             <p style="margin-top: 10px; font-size: 11px; text-align: center; color: var(--color-text-muted, #8e8e93);">
               By signing in, you agree to our <a href="/privacy.html" target="_blank" rel="noopener noreferrer"
-                style="color: var(--color-accent, #bf5af2); text-decoration: underline;">Privacy Policy</a>.
+                style="color: var(--color-accent, #bf5af2); text-decoration: underline;">Privacy Policy</a> and <a href="/terms.html" target="_blank" rel="noopener noreferrer"
+                style="color: var(--color-accent, #bf5af2); text-decoration: underline;">Terms of Service</a>.
             </p>
           </div>
           <div id="auth-logged" class="auth-section hidden">
@@ -332,8 +339,12 @@
         </div>
         <div
           style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border-subtle, #38383a); text-align: center; font-size: 12px;">
+          <a href="/about.html" target="_blank" rel="noopener noreferrer"
+            style="color: var(--color-accent, #bf5af2); text-decoration: underline; margin-right: 12px;">About</a>
           <a href="/privacy.html" target="_blank" rel="noopener noreferrer"
-            style="color: var(--color-accent, #bf5af2); text-decoration: underline;">Privacy Policy</a>
+            style="color: var(--color-accent, #bf5af2); text-decoration: underline; margin-right: 12px;">Privacy Policy</a>
+          <a href="/terms.html" target="_blank" rel="noopener noreferrer"
+            style="color: var(--color-accent, #bf5af2); text-decoration: underline;">Terms of Service</a>
         </div>
       </div>
     </div>
@@ -399,7 +410,7 @@
 
   <!-- FFmpeg self-hosted: e.p resolves worker to same-origin /vendor/814.ffmpeg.js -->
   <script src="/vendor/ffmpeg.js"></script>
-  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js"></script>
+  <script src="https://unpkg.com/@ffmpeg/util@0.12.1/dist/umd/index.js" crossorigin="anonymous"></script>
 
   <!-- Google APIs -->
   <script src="https://accounts.google.com/gsi/client" async defer></script>
@@ -415,7 +426,7 @@
     }
   </script>
   <div id="snackbar-container" class="snackbar-container"></div>
-  <script src="app.js?v=v20260427112935"></script>
+  <script src="app.js?v=v20260716091100"></script>
 
 </body>
 

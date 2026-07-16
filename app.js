@@ -127,7 +127,7 @@ async function init() {
     const FFmpegClass = mod?.FFmpeg ?? mod;
     if (FFmpegClass && typeof FFmpegClass === 'function') {
       ffmpeg = new FFmpegClass();
-      ffmpeg.on('log', ({ message }) => console.log(message));
+      // ffmpeg.on('log', ({ message }) => console.debug(message));
 
       const base = location.origin + '/vendor/';
       const coreURL = base + 'umd/ffmpeg-core.js';
