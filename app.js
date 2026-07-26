@@ -973,9 +973,18 @@ async function processVideo() {
       ffmpegArgs.push('-af', `afade=t=in:st=0:d=1,afade=t=out:st=${fadeOutStart}:d=1`);
     }
 
-    // Maintain decent defaults for re-encoding
+    // DaVinci Resolve compatible MP4 encoding defaults (H.264 yuv420p + AAC 48kHz)
     if (outputFormat === 'mp4') {
-      ffmpegArgs.push('-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28');
+      ffmpegArgs.push(
+        '-c:v', 'libx264',
+        '-preset', 'ultrafast',
+        '-crf', '23',
+        '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac',
+        '-b:a', '192k',
+        '-ar', '48000',
+        '-movflags', '+faststart'
+      );
     }
 
     ffmpegArgs.push(outputName);
