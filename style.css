@@ -1099,6 +1099,21 @@ select option {
   box-shadow: none;
 }
 
+.mdc-button--filled.is-processing,
+.mdc-button--filled.is-processing:disabled {
+  opacity: 1;
+  cursor: wait;
+  background: linear-gradient(
+    90deg,
+    var(--accent-hover, #2563eb) 0%,
+    var(--accent-hover, #2563eb) var(--progress, 0%),
+    rgba(255, 255, 255, 0.15) var(--progress, 0%),
+    rgba(255, 255, 255, 0.15) 100%
+  );
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
+  transition: background 0.1s linear;
+}
+
 .editing-card-body>.mdc-button {
   margin-top: 4px;
 }

@@ -925,9 +925,20 @@ async function processVideo() {
   }
 
   processBtn.disabled = true;
-  processBtn.textContent = 'Processing...';
+  processBtn.classList.add('is-processing');
+  processBtn.style.setProperty('--progress', '0%');
+  processBtn.textContent = 'Processing... 0%';
+
+  const handleProgress = ({ progress }) => {
+    const ratio = progress > 1 ? progress / 100 : progress;
+    const pct = Math.min(100, Math.max(0, Math.round(ratio * 100)));
+    processBtn.textContent = `Processing... ${pct}%`;
+    processBtn.style.setProperty('--progress', `${pct}%`);
+  };
 
   try {
+    ffmpeg.on('progress', handleProgress);
+
     const videoDuration = playbackVideo.duration;
     if (!videoDuration || isNaN(videoDuration)) {
       alert("Please wait for the video to load before processing.");
@@ -1029,7 +1040,12 @@ async function processVideo() {
     console.error("FFmpeg processing failed:", err);
     showToast("Processing failed", "error");
   } finally {
+    if (ffmpeg) {
+      ffmpeg.off('progress', handleProgress);
+    }
     processBtn.disabled = false;
+    processBtn.classList.remove('is-processing');
+    processBtn.style.removeProperty('--progress');
     processBtn.textContent = 'Process Video';
   }
 }
