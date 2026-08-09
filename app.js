@@ -853,38 +853,86 @@ function setupTrimTimeline() {
 }
 
 async function generateThumbnails(blob) {
-  if (!ffmpeg || !ffmpeg.loaded) return;
-
-  const inputName = `thumb_input.${recordedFormat}`;
-  const videoData = await blob.arrayBuffer();
-  await ffmpeg.writeFile(inputName, new Uint8Array(videoData));
-
-  // Get duration
-  const dur = playbackVideo.duration || 5; // fallback
-  const numThumbs = 10;
-  const fps = numThumbs / dur;
-
+  if (!trimFilmstrip) return;
   trimFilmstrip.innerHTML = ''; // clear existing
 
-  try {
-    // Extract thumbnails
-    // Using simple scale and fps filters
-    await ffmpeg.exec(['-i', inputName, '-vf', `fps=${fps},scale=-1:48`, 'thumb%d.jpg']);
+  let srcUrl = objectUrl;
+  let createdUrl = null;
+  if (!srcUrl && blob) {
+    createdUrl = URL.createObjectURL(blob);
+    srcUrl = createdUrl;
+  }
+  if (!srcUrl) return;
 
-    for (let i = 1; i <= numThumbs; i++) {
-      try {
-        const data = await ffmpeg.readFile(`thumb${i}.jpg`);
-        const url = URL.createObjectURL(new Blob([data.buffer], { type: 'image/jpeg' }));
-        const img = document.createElement('img');
-        img.src = url;
-        trimFilmstrip.appendChild(img);
-      } catch (e) {
-        // Might have fewer thumbs than requested if video is very short
-        break;
-      }
+  const tempVideo = document.createElement('video');
+  tempVideo.muted = true;
+  tempVideo.playsInline = true;
+  tempVideo.preload = 'metadata';
+  tempVideo.src = srcUrl;
+
+  try {
+    await new Promise((resolve, reject) => {
+      const onLoaded = () => {
+        tempVideo.removeEventListener('loadedmetadata', onLoaded);
+        resolve();
+      };
+      const onError = () => {
+        tempVideo.removeEventListener('error', onError);
+        reject();
+      };
+      tempVideo.addEventListener('loadedmetadata', onLoaded);
+      tempVideo.addEventListener('error', onError);
+      setTimeout(resolve, 1000);
+    });
+
+    const dur = tempVideo.duration || playbackVideo.duration;
+    if (!dur || isNaN(dur) || dur <= 0) return;
+
+    const numThumbs = 10;
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const width = 160;
+    const height = 90;
+    canvas.width = width;
+    canvas.height = height;
+
+    const fragment = document.createDocumentFragment();
+
+    for (let i = 0; i < numThumbs; i++) {
+      const time = ((i + 0.5) / numThumbs) * dur;
+      tempVideo.currentTime = Math.min(dur - 0.05, Math.max(0, time));
+
+      await new Promise((resolve) => {
+        let done = false;
+        const capture = () => {
+          if (done) return;
+          done = true;
+          try {
+            ctx.drawImage(tempVideo, 0, 0, width, height);
+            const img = document.createElement('img');
+            img.src = canvas.toDataURL('image/jpeg', 0.7);
+            fragment.appendChild(img);
+          } catch (e) {}
+          resolve();
+        };
+        const timer = setTimeout(capture, 250);
+        const onSeeked = () => {
+          clearTimeout(timer);
+          tempVideo.removeEventListener('seeked', onSeeked);
+          capture();
+        };
+        tempVideo.addEventListener('seeked', onSeeked);
+      });
     }
+
+    trimFilmstrip.appendChild(fragment);
   } catch (err) {
     console.warn('Thumbnail generation failed:', err);
+  } finally {
+    tempVideo.remove();
+    if (createdUrl) {
+      URL.revokeObjectURL(createdUrl);
+    }
   }
 }
 
@@ -929,10 +977,20 @@ async function processVideo() {
   processBtn.style.setProperty('--progress', '0%');
   processBtn.textContent = 'Processing... 0%';
 
+  let hasStartedEncoding = false;
+  let lastRatio = 0;
+
   const handleProgress = ({ progress }) => {
     const ratio = progress > 1 ? progress / 100 : progress;
+    // When FFmpeg switches from fast seek/demux to encoding, ratio resets near 0
+    if (ratio < lastRatio && lastRatio > 0.5) {
+      hasStartedEncoding = true;
+    }
+    lastRatio = ratio;
+
     const pct = Math.min(100, Math.max(0, Math.round(ratio * 100)));
-    processBtn.textContent = `Processing... ${pct}%`;
+    const label = (hasStartedEncoding || start === 0) ? `Encoding... ${pct}%` : `Preparing... ${pct}%`;
+    processBtn.textContent = label;
     processBtn.style.setProperty('--progress', `${pct}%`);
   };
 
