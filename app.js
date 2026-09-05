@@ -972,6 +972,21 @@ async function processVideo() {
     return;
   }
 
+  const videoDuration = playbackVideo.duration;
+  if (!videoDuration || isNaN(videoDuration)) {
+    alert("Please wait for the video to load before processing.");
+    return;
+  }
+  const start = Math.max(0, parseFloat(trimStart.value) || 0);
+  const end = Math.min(videoDuration, parseFloat(trimEnd.value) || videoDuration);
+  const duration = end - start;
+  const addFade = true; // always apply fade in/out
+
+  if (duration <= 0) {
+    alert("End time must be greater than start time.");
+    return;
+  }
+
   processBtn.disabled = true;
   processBtn.classList.add('is-processing');
   processBtn.style.setProperty('--progress', '0%');
@@ -996,21 +1011,6 @@ async function processVideo() {
 
   try {
     ffmpeg.on('progress', handleProgress);
-
-    const videoDuration = playbackVideo.duration;
-    if (!videoDuration || isNaN(videoDuration)) {
-      alert("Please wait for the video to load before processing.");
-      return;
-    }
-    const start = Math.max(0, parseFloat(trimStart.value) || 0);
-    const end = Math.min(videoDuration, parseFloat(trimEnd.value) || videoDuration);
-    const duration = end - start;
-    const addFade = true; // always apply fade in/out
-
-    if (duration <= 0) {
-      alert("End time must be greater than start time.");
-      return;
-    }
 
     // Use actual recorded format for input (MediaRecorder may have used webm even if user chose mp4)
     const inputFormat = recordedFormat;
