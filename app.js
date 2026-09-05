@@ -549,6 +549,9 @@ function setupEventListeners() {
     editBtn.innerHTML = expanded ? EDIT_ICON : CLOSE_ICON;
     editingPanel.hidden = expanded;
     editingTools.classList.toggle('editing-tools--expanded', !expanded);
+    if (expanded) {
+      editBtn.focus();
+    }
   });
 
   youtubeBtn.addEventListener('click', () => {
@@ -586,6 +589,7 @@ function setupEventListeners() {
   youtubeUploadBtn.addEventListener('click', startYoutubeUpload);
   signoutBtn.addEventListener('click', handleSignOut);
   if (customSigninBtn) customSigninBtn.addEventListener('click', requestLogin);
+  setupDraggableDeviceOverlay();
 }
 
 function runCountdownThenStartRecording() {
@@ -1090,6 +1094,7 @@ async function processVideo() {
       editBtn.innerHTML = EDIT_ICON;
       editingPanel.hidden = true;
       editingTools.classList.remove('editing-tools--expanded');
+      editBtn.focus();
       
       playbackVideo.onloadedmetadata = null;
     };
@@ -1722,6 +1727,137 @@ function syncSelectorsToActiveStream() {
 }
 
 // --- Device & Audio Level Overlay Logic ---
+
+function setupDraggableDeviceOverlay() {
+  const overlay = document.getElementById('device-status-overlay');
+  const container = document.getElementById('video-container');
+  if (!overlay || !container) return;
+
+  let isDragging = false;
+  let startX = 0;
+  let startY = 0;
+  let initialLeft = 0;
+  let initialTop = 0;
+
+  // Restore saved position if valid
+  const restoreSavedPosition = () => {
+    const savedPos = localStorage.getItem('pm-device-overlay-pos');
+    if (!savedPos) return;
+    try {
+      const { leftPct, topPct } = JSON.parse(savedPos);
+      if (typeof leftPct === 'number' && typeof topPct === 'number') {
+        overlay.style.left = `${leftPct}%`;
+        overlay.style.top = `${topPct}%`;
+        overlay.style.right = 'auto';
+        overlay.style.bottom = 'auto';
+      }
+    } catch (e) {
+      console.warn('Could not restore device overlay position:', e);
+    }
+  };
+
+  restoreSavedPosition();
+
+  const onPointerDown = (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const overlayRect = overlay.getBoundingClientRect();
+
+    isDragging = true;
+    startX = e.clientX;
+    startY = e.clientY;
+    initialLeft = overlayRect.left - containerRect.left;
+    initialTop = overlayRect.top - containerRect.top;
+
+    overlay.classList.add('is-dragging');
+    try {
+      overlay.setPointerCapture(e.pointerId);
+    } catch (_) {}
+    e.preventDefault();
+  };
+
+  const onPointerMove = (e) => {
+    if (!isDragging) return;
+
+    const dx = e.clientX - startX;
+    const dy = e.clientY - startY;
+
+    const containerRect = container.getBoundingClientRect();
+    const overlayRect = overlay.getBoundingClientRect();
+
+    const maxLeft = Math.max(0, containerRect.width - overlayRect.width);
+    const maxTop = Math.max(0, containerRect.height - overlayRect.height);
+
+    const newLeft = Math.max(0, Math.min(maxLeft, initialLeft + dx));
+    const newTop = Math.max(0, Math.min(maxTop, initialTop + dy));
+
+    overlay.style.left = `${newLeft}px`;
+    overlay.style.top = `${newTop}px`;
+    overlay.style.right = 'auto';
+    overlay.style.bottom = 'auto';
+  };
+
+  const onPointerUp = (e) => {
+    if (!isDragging) return;
+    isDragging = false;
+    overlay.classList.remove('is-dragging');
+    try {
+      overlay.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+
+    const containerRect = container.getBoundingClientRect();
+    const overlayRect = overlay.getBoundingClientRect();
+    const curLeft = overlayRect.left - containerRect.left;
+    const curTop = overlayRect.top - containerRect.top;
+
+    if (containerRect.width > 0 && containerRect.height > 0) {
+      const leftPct = Math.max(0, Math.min(95, (curLeft / containerRect.width) * 100));
+      const topPct = Math.max(0, Math.min(95, (curTop / containerRect.height) * 100));
+      overlay.style.left = `${leftPct.toFixed(2)}%`;
+      overlay.style.top = `${topPct.toFixed(2)}%`;
+      localStorage.setItem('pm-device-overlay-pos', JSON.stringify({ leftPct, topPct }));
+    }
+  };
+
+  // Double-click to reset to default top-right position
+  overlay.addEventListener('dblclick', (e) => {
+    e.stopPropagation();
+    overlay.style.left = '';
+    overlay.style.top = '';
+    overlay.style.right = '';
+    overlay.style.bottom = '';
+    localStorage.removeItem('pm-device-overlay-pos');
+  });
+
+  // Keep overlay inside container on window resize
+  window.addEventListener('resize', () => {
+    if (overlay.style.left && overlay.style.left.endsWith('%')) {
+      const containerRect = container.getBoundingClientRect();
+      const overlayRect = overlay.getBoundingClientRect();
+      if (containerRect.width === 0 || containerRect.height === 0) return;
+
+      const maxLeft = Math.max(0, containerRect.width - overlayRect.width);
+      const maxTop = Math.max(0, containerRect.height - overlayRect.height);
+      const curLeft = overlayRect.left - containerRect.left;
+      const curTop = overlayRect.top - containerRect.top;
+
+      if (curLeft > maxLeft || curTop > maxTop) {
+        const clampedLeft = Math.max(0, Math.min(maxLeft, curLeft));
+        const clampedTop = Math.max(0, Math.min(maxTop, curTop));
+        const leftPct = (clampedLeft / containerRect.width) * 100;
+        const topPct = (clampedTop / containerRect.height) * 100;
+        overlay.style.left = `${leftPct.toFixed(2)}%`;
+        overlay.style.top = `${topPct.toFixed(2)}%`;
+      }
+    }
+  });
+
+  overlay.addEventListener('pointerdown', onPointerDown);
+  overlay.addEventListener('pointermove', onPointerMove);
+  overlay.addEventListener('pointerup', onPointerUp);
+  overlay.addEventListener('pointercancel', onPointerUp);
+}
 
 function updateDeviceOverlayDisplay() {
   const overlay = document.getElementById('device-status-overlay');

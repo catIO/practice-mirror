@@ -80,8 +80,11 @@ body {
 }
 
 .logo svg {
+  width: 30px;
+  height: 30px;
   color: #fff;
-  filter: drop-shadow(0 0 6px rgba(255, 255, 255, 0.2));
+  flex-shrink: 0;
+  filter: drop-shadow(0 2px 8px rgba(255, 255, 255, 0.18));
 }
 
 .logo h1 {
@@ -1570,26 +1573,44 @@ select option {
   }
 }
 
-/* Device & Audio Status Overlay (Top Right) */
+/* Device & Audio Status Overlay (Draggable) */
 .device-status-overlay {
   position: absolute;
   top: 24px;
   right: 24px;
-  background: rgba(10, 10, 12, 0.65);
+  background: rgba(10, 10, 12, 0.75);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--border-radius-md);
   padding: 12px 16px;
   display: flex;
   flex-direction: column;
   gap: 10px;
   z-index: 15;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
   width: 260px;
-  transition: opacity var(--transition-normal), visibility var(--transition-normal);
+  max-width: calc(100% - 24px);
+  transition: opacity var(--transition-normal), visibility var(--transition-normal), box-shadow 0.2s ease, border-color 0.2s ease;
   color: var(--text-primary);
-  pointer-events: none; /* Let clicks pass through to video */
+  pointer-events: auto; /* Enable dragging & interaction */
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;
+}
+
+.device-status-overlay:hover {
+  border-color: rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.5);
+}
+
+.device-status-overlay.is-dragging {
+  cursor: grabbing;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+  border-color: var(--accent-color);
+  opacity: 0.95;
+  transition: none !important;
 }
 
 .device-status-header {
@@ -1598,6 +1619,24 @@ select option {
   gap: 8px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   padding-bottom: 6px;
+}
+
+.drag-hint {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  opacity: 0.75;
+  padding: 3px 5px;
+  border-radius: 4px;
+  transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.device-status-overlay:hover .drag-hint {
+  opacity: 1;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .status-dot {
