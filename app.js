@@ -34,6 +34,8 @@ let analyserNode = null;
 let audioLevelAnimationId = null;
 let clipTimeoutId = null;
 let currentMicGain = 1.0;
+let knownDeviceIds = new Set();
+let devicePromptTimeoutId = null;
 
 // DOM Elements
 const liveVideo = document.getElementById('live-video');
@@ -230,11 +232,40 @@ async function init() {
     }
 
     if (navigator.mediaDevices) {
+      // Snapshot initial devices so we can recognize when a new one is connected
+      try {
+        const initialDevices = await navigator.mediaDevices.enumerateDevices();
+        initialDevices.forEach(d => {
+          if (d.deviceId) knownDeviceIds.add(d.deviceId);
+        });
+      } catch (e) {}
+
       navigator.mediaDevices.addEventListener('devicechange', async () => {
         console.log('--- Media Device Change Detected ---');
         const oldCameraValue = cameraSelect.value;
         const oldMicValue = micSelect.value;
         
+        let freshDevices = [];
+        try {
+          freshDevices = await navigator.mediaDevices.enumerateDevices();
+        } catch (e) {
+          console.warn('enumerateDevices error on devicechange:', e);
+          return;
+        }
+
+        // Identify any newly connected devices that were not present previously
+        const newlyAdded = freshDevices.filter(d => 
+          d.deviceId &&
+          !knownDeviceIds.has(d.deviceId) &&
+          d.deviceId !== 'default' &&
+          d.deviceId !== 'communications'
+        );
+
+        // Update known devices set
+        freshDevices.forEach(d => {
+          if (d.deviceId) knownDeviceIds.add(d.deviceId);
+        });
+
         await populateDeviceSelectors();
         
         // Preserve previously selected devices if they still exist in the new options list
@@ -247,28 +278,33 @@ async function init() {
         
         // Synchronize select values to the actually running stream tracks (if any)
         syncSelectorsToActiveStream();
-        
-        // If the running microphone track has ended, or if the user's preferred mic has just been reconnected,
-        // let's restart the camera/mic to reconnect audio and update visualizer!
-        const audioTrack = mediaStream?.getAudioTracks()[0];
-        const hasEnded = audioTrack?.readyState === 'ended';
-        
-        // Also check if the reconnected preferred mic is now available
-        const savedMicId = localStorage.getItem('pm-mic-id');
-        const preferredMicNowAvailable = savedMicId && savedMicId !== micSelect.value && 
-                                         Array.from(micSelect.options).some(opt => opt.value === savedMicId);
 
-        if (hasEnded || preferredMicNowAvailable) {
-          console.log('Active audio track ended or preferred mic reconnected. Re-initializing camera...');
-          if (preferredMicNowAvailable && savedMicId) {
-            micSelect.value = savedMicId;
-          }
-          await startCamera();
+        // If recording is underway, do not interrupt live take
+        if (currentState === STATE.RECORDING) {
+          return;
+        }
+
+        // Check if a new mic or camera was plugged in
+        const newMic = newlyAdded.find(d => d.kind === 'audioinput' && d.label);
+        const newCamera = newlyAdded.find(d => d.kind === 'videoinput' && d.label);
+
+        if (newMic || newCamera) {
+          const target = newMic || newCamera;
+          const isMic = target.kind === 'audioinput';
+          promptConnectDevice(target, isMic);
         } else {
-          // Just refresh the HUD overlays
-          updateDeviceOverlayDisplay();
-          if (mediaStream) {
-            setupAudioLevelMeter(mediaStream);
+          // If the running microphone track has ended, recover
+          const audioTrack = mediaStream?.getAudioTracks()[0];
+          const hasEnded = audioTrack?.readyState === 'ended';
+
+          if (hasEnded) {
+            console.log('Active audio track ended. Re-initializing camera...');
+            await startCamera();
+          } else {
+            updateDeviceOverlayDisplay();
+            if (mediaStream) {
+              setupAudioLevelMeter(mediaStream);
+            }
           }
         }
       });
@@ -316,6 +352,78 @@ async function populateDeviceSelectors() {
 
   cameraSelect.innerHTML = createOptions(videoInput, 'No Camera Found');
   micSelect.innerHTML = createOptions(audioInput, 'No Mic Found');
+}
+
+function promptConnectDevice(device, isMic) {
+  dismissDevicePrompt();
+
+  const cleanName = formatDeviceLabel(device.label) || (isMic ? 'External Microphone' : 'External Camera');
+  const typeName = isMic ? 'Microphone' : 'Camera';
+
+  const banner = document.createElement('div');
+  banner.id = 'device-connect-prompt';
+  banner.className = 'device-prompt-banner';
+  banner.setAttribute('role', 'alert');
+  banner.setAttribute('aria-live', 'polite');
+
+  const iconSvg = isMic
+    ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>`
+    : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 12-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+
+  banner.innerHTML = `
+    <div class="device-prompt-icon">${iconSvg}</div>
+    <div class="device-prompt-text">
+      <span class="device-prompt-title">New ${typeName} Connected</span>
+      <span class="device-prompt-name" title="${cleanName}">${cleanName}</span>
+    </div>
+    <div class="device-prompt-actions">
+      <button id="device-prompt-switch-btn" class="device-prompt-btn device-prompt-btn--primary">Connect</button>
+      <button id="device-prompt-dismiss-btn" class="device-prompt-btn device-prompt-btn--secondary" aria-label="Dismiss">Dismiss</button>
+    </div>
+  `;
+
+  document.body.appendChild(banner);
+
+  const switchBtn = banner.querySelector('#device-prompt-switch-btn');
+  const dismissBtn = banner.querySelector('#device-prompt-dismiss-btn');
+
+  switchBtn.addEventListener('click', async () => {
+    dismissDevicePrompt();
+    if (isMic) {
+      micSelect.value = device.deviceId;
+      localStorage.setItem('pm-mic-id', device.deviceId);
+      localStorage.setItem('pm-mic-label', cleanName);
+    } else {
+      cameraSelect.value = device.deviceId;
+      localStorage.setItem('pm-camera-id', device.deviceId);
+      localStorage.setItem('pm-camera-label', cleanName);
+    }
+    await startCamera();
+    showToast(`Connected to ${cleanName}`, 'success');
+  });
+
+  dismissBtn.addEventListener('click', () => {
+    dismissDevicePrompt();
+  });
+
+  devicePromptTimeoutId = setTimeout(() => {
+    dismissDevicePrompt();
+  }, 15000);
+}
+
+function dismissDevicePrompt() {
+  if (devicePromptTimeoutId) {
+    clearTimeout(devicePromptTimeoutId);
+    devicePromptTimeoutId = null;
+  }
+  const banner = document.getElementById('device-connect-prompt');
+  if (banner) {
+    banner.classList.add('fade-out');
+    banner.addEventListener('animationend', () => banner.remove());
+    setTimeout(() => {
+      if (banner.parentNode) banner.remove();
+    }, 250);
+  }
 }
 
 function stopPreview() {
