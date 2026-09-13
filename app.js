@@ -25,11 +25,15 @@ let userProfile = null; // Stores { name, email, picture }
 let accessToken = null; // Stores the active token for YouTube uploads
 let isUploading = false; // Tracks active YouTube upload to prevent accidental closing
 
-// Web Audio API Globals for visualizer
+// Web Audio API Globals for visualizer and audio gain stage
 let audioCtx = null;
 let audioSourceNode = null;
+let gainNode = null;
+let audioDestinationNode = null;
 let analyserNode = null;
 let audioLevelAnimationId = null;
+let clipTimeoutId = null;
+let currentMicGain = 1.0;
 
 // DOM Elements
 const liveVideo = document.getElementById('live-video');
@@ -57,6 +61,9 @@ const modalOverlay = document.getElementById('modal-overlay');
 const settingsBtn = document.getElementById('settings-btn');
 const closeSettingsBtn = document.getElementById('close-settings-btn');
 const deviceSelectors = document.getElementById('device-selectors');
+const micGainSlider = document.getElementById('mic-gain-slider');
+const micGainVal = document.getElementById('mic-gain-val');
+const audioClipIndicator = document.getElementById('audio-clip-indicator');
 const recordingIndicator = document.getElementById('recording-indicator');
 const recordingTimeEl = document.getElementById('recording-time');
 const stateOverlay = document.getElementById('state-overlay');
@@ -150,6 +157,12 @@ async function init() {
     const savedMicLabel = localStorage.getItem('pm-mic-label');
     const savedFormat = localStorage.getItem('pm-format');
     const savedResolution = localStorage.getItem('pm-resolution');
+    const savedMicGain = localStorage.getItem('pm-mic-gain');
+    if (savedMicGain && micGainSlider) {
+      micGainSlider.value = savedMicGain;
+      if (micGainVal) micGainVal.textContent = `${savedMicGain}%`;
+      currentMicGain = (parseInt(savedMicGain, 10) || 100) / 100;
+    }
 
     // Initialize Snackbar Container
     snackbarContainer = document.getElementById('snackbar-container');
@@ -162,7 +175,7 @@ async function init() {
     try {
       const initialConstraints = {
         video: savedCameraId ? { deviceId: { exact: savedCameraId } } : true,
-        audio: savedMicId ? { deviceId: { exact: savedMicId } } : true
+        audio: getAudioConstraints(savedMicId)
       };
       mediaStream = await navigator.mediaDevices.getUserMedia(initialConstraints);
     } catch (err) {
@@ -176,17 +189,17 @@ async function init() {
         if (fallbackCameraId || fallbackMicId) {
           const fallbackConstraints = {
             video: fallbackCameraId ? { deviceId: { exact: fallbackCameraId } } : true,
-            audio: fallbackMicId ? { deviceId: { exact: fallbackMicId } } : true
+            audio: getAudioConstraints(fallbackMicId)
           };
           mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
         } else {
-          // No label match either, go with defaults
-          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          // No label match either, go with music-safe defaults
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: getAudioConstraints() });
         }
       } catch (fallbackErr) {
         console.warn('All device restoration attempts failed, using defaults.', fallbackErr);
         try {
-          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: getAudioConstraints() });
         } catch (defaultErr) {
           console.warn('Total media access denial.', defaultErr);
         }
@@ -274,6 +287,14 @@ async function init() {
   console.log('App initialization complete!');
 }
 
+function formatDeviceLabel(label) {
+  if (!label) return '';
+  // Remove technical USB hardware IDs like (0000:0001) or (05ac:8514)
+  return label
+    .replace(/\s*\([0-9a-fA-F]{4}:[0-9a-fA-F]{4}(?::[0-9a-fA-F]{4})?\)/g, '')
+    .trim();
+}
+
 async function populateDeviceSelectors() {
   if (!navigator.mediaDevices) {
     console.warn('navigator.mediaDevices is not supported. Skipping populating device selectors.');
@@ -286,7 +307,11 @@ async function populateDeviceSelectors() {
 
   const createOptions = (devices, defaultText) => {
     if (devices.length === 0) return `<option value="">${defaultText}</option>`;
-    return devices.map(d => `<option value="${d.deviceId}">${d.label || `Device ${d.deviceId.slice(0, 5)}`}</option>`).join('');
+    return devices.map(d => {
+      const cleanLabel = formatDeviceLabel(d.label);
+      const displayText = cleanLabel || `Device ${d.deviceId.slice(0, 5)}`;
+      return `<option value="${d.deviceId}">${displayText}</option>`;
+    }).join('');
   };
 
   cameraSelect.innerHTML = createOptions(videoInput, 'No Camera Found');
@@ -338,11 +363,32 @@ function updatePreviewUI() {
   }
 }
 
-async function startCamera() {
-  if (!navigator.mediaDevices) {
-    console.warn('navigator.mediaDevices is not supported. Cannot start camera.');
-    return;
+function getAudioConstraints(audioSourceId) {
+  const audioConstraints = {
+    echoCancellation: false,
+    autoGainControl: false,
+    noiseSuppression: false,
+    channelCount: { ideal: 2 },
+    sampleRate: { ideal: 48000 },
+    // Bypass browser speech filters (preserves classical guitar low E fundamental 82Hz & body warmth)
+    googEchoCancellation: false,
+    googAutoGainControl: false,
+    googNoiseSuppression: false,
+    googHighpassFilter: false,
+    googTypingNoiseDetection: false,
+    googAudioMirroring: false
+  };
+  if (audioSourceId) {
+    audioConstraints.deviceId = { exact: audioSourceId };
   }
+  return audioConstraints;
+}
+
+async function startCamera() {
+  // If preview was stopped, clear that flag
+  isPreviewStopped = false;
+
+  // Stop any existing stream tracks first
   if (mediaStream) {
     mediaStream.getTracks().forEach(track => track.stop());
   }
@@ -375,9 +421,7 @@ async function startCamera() {
 
   const constraints = {
     video: videoConstraints,
-    audio: audioSource
-      ? { deviceId: { exact: audioSource }, echoCancellation: false, autoGainControl: false, noiseSuppression: false }
-      : true
+    audio: getAudioConstraints(audioSource)
   };
 
   try {
@@ -410,7 +454,18 @@ async function startCamera() {
 
 function findDeviceIdByLabel(devices, kind, label) {
   if (!label) return null;
-  const match = devices.find(d => d.kind === kind && (d.label === label || d.label.includes(label)));
+  const cleanTarget = formatDeviceLabel(label);
+  const match = devices.find(d => {
+    if (d.kind !== kind) return false;
+    const cleanCurrent = formatDeviceLabel(d.label);
+    return (
+      d.label === label ||
+      d.label.includes(label) ||
+      cleanCurrent === cleanTarget ||
+      cleanCurrent.includes(cleanTarget) ||
+      cleanTarget.includes(cleanCurrent)
+    );
+  });
   return match ? match.deviceId : null;
 }
 
@@ -428,6 +483,18 @@ function setupEventListeners() {
     localStorage.setItem('pm-mic-label', selectedOption.text);
     startCamera();
   });
+
+  if (micGainSlider) {
+    micGainSlider.addEventListener('input', () => {
+      const val = parseInt(micGainSlider.value, 10) || 100;
+      if (micGainVal) micGainVal.textContent = `${val}%`;
+      currentMicGain = val / 100;
+      if (gainNode && audioCtx) {
+        gainNode.gain.setTargetAtTime(currentMicGain, audioCtx.currentTime, 0.02);
+      }
+      localStorage.setItem('pm-mic-gain', val.toString());
+    });
+  }
 
   resolutionSelect.addEventListener('change', () => {
     localStorage.setItem('pm-resolution', resolutionSelect.value);
@@ -625,14 +692,45 @@ function startRecording() {
   if (!mediaStream) return;
   recordedChunks = [];
 
+  // Form stream to record: combine camera video track with gain-processed audio track if active
+  let streamToRecord = mediaStream;
+  if (audioDestinationNode && audioDestinationNode.stream) {
+    const videoTracks = mediaStream.getVideoTracks();
+    const processedAudioTracks = audioDestinationNode.stream.getAudioTracks();
+    if (videoTracks.length > 0 && processedAudioTracks.length > 0) {
+      streamToRecord = new MediaStream([videoTracks[0], processedAudioTracks[0]]);
+    }
+  }
+
   const selectedFormat = formatSelect.value || 'mp4';
-  const options = { mimeType: getSupportedMimeType(selectedFormat) };
+  const mimeType = getSupportedMimeType(selectedFormat);
+  const resVal = resolutionSelect ? resolutionSelect.value : '1080';
+
+  // High-bitrate video allocation for YouTube & NLE editing
+  let videoBitsPerSecond = 12000000; // 12 Mbps default for 1080p
+  if (resVal === '720') {
+    videoBitsPerSecond = 6000000; // 6 Mbps
+  } else if (resVal === '2160') {
+    videoBitsPerSecond = 30000000; // 30 Mbps
+  }
+  const audioBitsPerSecond = 320000; // 320 kbps studio-grade music audio
+
+  const options = {
+    mimeType,
+    videoBitsPerSecond,
+    audioBitsPerSecond
+  };
+
   try {
-    mediaRecorder = new MediaRecorder(mediaStream, options);
+    mediaRecorder = new MediaRecorder(streamToRecord, options);
   } catch (e) {
-    console.error('MediaRecorder error with requested mimeType:', options.mimeType, e);
-    // Fallback to default if explicitly requested type fails
-    mediaRecorder = new MediaRecorder(mediaStream);
+    console.warn('MediaRecorder with bitrate options failed, falling back to basic mimeType:', e);
+    try {
+      mediaRecorder = new MediaRecorder(streamToRecord, { mimeType });
+    } catch (e2) {
+      console.error('MediaRecorder fallback to default:', e2);
+      mediaRecorder = new MediaRecorder(streamToRecord);
+    }
   }
 
   mediaRecorder.ondataavailable = (event) => {
@@ -984,7 +1082,7 @@ async function processVideo() {
   const start = Math.max(0, parseFloat(trimStart.value) || 0);
   const end = Math.min(videoDuration, parseFloat(trimEnd.value) || videoDuration);
   const duration = end - start;
-  const addFade = true; // always apply fade in/out
+  const addFade = false; // Disabled by default to protect acoustic note attacks and natural reverb decay
 
   if (duration <= 0) {
     alert("End time must be greater than start time.");
@@ -1046,17 +1144,29 @@ async function processVideo() {
       ffmpegArgs.push('-af', `afade=t=in:st=0:d=1,afade=t=out:st=${fadeOutStart}:d=1`);
     }
 
-    // DaVinci Resolve compatible MP4 encoding defaults (H.264 yuv420p + AAC 48kHz)
+    // DaVinci Resolve / Premiere Pro / Final Cut / YouTube compatible MP4 encoding:
+    // H.264 High profile yuv420p + AAC 320k 48kHz stereo + faststart moov atom
     if (outputFormat === 'mp4') {
       ffmpegArgs.push(
         '-c:v', 'libx264',
-        '-preset', 'ultrafast',
-        '-crf', '23',
+        '-preset', 'veryfast',
+        '-crf', '19',
         '-pix_fmt', 'yuv420p',
         '-c:a', 'aac',
-        '-b:a', '192k',
+        '-b:a', '320k',
         '-ar', '48000',
+        '-ac', '2',
         '-movflags', '+faststart'
+      );
+    } else {
+      // High-quality WebM VP9 + Opus
+      ffmpegArgs.push(
+        '-c:v', 'libvpx-vp9',
+        '-b:v', '0',
+        '-crf', '24',
+        '-c:a', 'libopus',
+        '-b:a', '256k',
+        '-ar', '48000'
       );
     }
 
@@ -1440,6 +1550,7 @@ function getSupportedMimeType(preferredFormat = 'mp4') {
   let types = [];
   if (preferredFormat === 'mp4') {
     types = [
+      'video/mp4;codecs=avc1,mp4a.40.2',
       'video/mp4;codecs=avc1',
       'video/mp4'
     ];
@@ -1897,7 +2008,7 @@ function setupAudioLevelMeter(stream) {
     console.warn('Audio level visualizer: No audio tracks in active mediaStream.');
     const micInfoEl = document.getElementById('active-mic-info');
     if (micInfoEl) micInfoEl.style.color = 'var(--danger-color)';
-    updateAudioMeterUI(0);
+    updateAudioMeterUI(0, false);
     return;
   }
   
@@ -1907,16 +2018,28 @@ function setupAudioLevelMeter(stream) {
   try {
     // Create or restore AudioContext
     if (!audioCtx || audioCtx.state === 'closed') {
-      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+      audioCtx = new AudioContextClass({ latencyHint: 'interactive' });
     }
     
     analyserNode = audioCtx.createAnalyser();
-    analyserNode.fftSize = 256;
+    analyserNode.fftSize = 512;
+    analyserNode.smoothingTimeConstant = 0.2;
     const bufferLength = analyserNode.frequencyBinCount;
     const dataArray = new Uint8Array(bufferLength);
 
     audioSourceNode = audioCtx.createMediaStreamSource(stream);
-    audioSourceNode.connect(analyserNode);
+    gainNode = audioCtx.createGain();
+    gainNode.gain.setValueAtTime(currentMicGain, audioCtx.currentTime);
+
+    audioDestinationNode = audioCtx.createMediaStreamDestination();
+
+    // Connect graph:
+    // audioSourceNode -> gainNode -> audioDestinationNode (for recording)
+    //                             -> analyserNode (for metering & peak detection)
+    audioSourceNode.connect(gainNode);
+    gainNode.connect(audioDestinationNode);
+    gainNode.connect(analyserNode);
 
     // Auto-resume AudioContext if suspended (browser autoplay policy)
     if (audioCtx.state === 'suspended') {
@@ -1944,7 +2067,7 @@ function setupAudioLevelMeter(stream) {
     const drawMeter = (timestamp) => {
       // Loop stops if we switch to playback, stop the stream, or analyzer is removed
       if (currentState === STATE.PLAYBACK || !mediaStream || !analyserNode) {
-        updateAudioMeterUI(0);
+        updateAudioMeterUI(0, false);
         return;
       }
 
@@ -1960,18 +2083,23 @@ function setupAudioLevelMeter(stream) {
 
       analyserNode.getByteTimeDomainData(dataArray);
       
-      // Calculate RMS (Root Mean Square) volume level from Time-Domain PCM samples
       let sum = 0;
+      let peak = 0;
       for (let i = 0; i < bufferLength; i++) {
-        const amplitude = (dataArray[i] - 128) / 128; // Silence is 128, scale to -1.0 to 1.0
-        sum += amplitude * amplitude;
+        const sample = (dataArray[i] - 128) / 128; // -1.0 to 1.0
+        const absSample = Math.abs(sample);
+        if (absSample > peak) peak = absSample;
+        sum += sample * sample;
       }
       const rms = Math.sqrt(sum / bufferLength);
       
-      // Normalize to progress bar percentage (0 - 100).
-      // A multiplier of 280-300 works incredibly well for normal speech sensitivity.
-      const percent = Math.min(100, Math.round(rms * 280));
-      updateAudioMeterUI(percent);
+      // Music dynamic range dBFS mapping (-48 dBFS to 0 dBFS)
+      const db = rms > 0.0001 ? 20 * Math.log10(rms) : -60;
+      const percent = Math.min(100, Math.max(0, Math.round(((db + 48) / 48) * 100)));
+      
+      // True peak clipping threshold (>= -0.2 dBFS is ~0.98)
+      const isClipping = peak >= 0.98;
+      updateAudioMeterUI(percent, isClipping);
     };
 
     drawMeter();
@@ -1991,25 +2119,49 @@ function cleanupAudioLevelMeter() {
     } catch (e) {}
     audioSourceNode = null;
   }
-  updateAudioMeterUI(0);
+  if (gainNode) {
+    try {
+      gainNode.disconnect();
+    } catch (e) {}
+    gainNode = null;
+  }
+  if (clipTimeoutId) {
+    clearTimeout(clipTimeoutId);
+    clipTimeoutId = null;
+  }
+  updateAudioMeterUI(0, false);
 }
 
-function updateAudioMeterUI(percent) {
+function updateAudioMeterUI(percent, isClipping = false) {
   const bar = document.getElementById('audio-level-bar');
+  const clipEl = document.getElementById('audio-clip-indicator');
   if (!bar) return;
 
   bar.style.width = `${percent}%`;
   
   // Transition styles for material design
-  if (percent < 55) {
+  if (percent < 70) {
     bar.style.backgroundColor = 'var(--success-color, #10b981)';
     bar.style.boxShadow = '0 0 8px rgba(16, 185, 129, 0.4)';
-  } else if (percent < 80) {
+  } else if (percent < 88) {
     bar.style.backgroundColor = '#fbbf24'; // beautiful material warning amber
     bar.style.boxShadow = '0 0 8px rgba(251, 191, 36, 0.4)';
   } else {
     bar.style.backgroundColor = 'var(--danger-color, #ef4444)'; // beautiful material error red
     bar.style.boxShadow = '0 0 10px rgba(239, 68, 68, 0.6)';
+  }
+
+  if (clipEl) {
+    if (isClipping) {
+      clipEl.classList.add('is-clipping');
+      if (clipTimeoutId) clearTimeout(clipTimeoutId);
+      clipTimeoutId = setTimeout(() => {
+        clipEl.classList.remove('is-clipping');
+        clipTimeoutId = null;
+      }, 1500);
+    } else if (!clipTimeoutId) {
+      clipEl.classList.remove('is-clipping');
+    }
   }
 }
 

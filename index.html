@@ -14,7 +14,11 @@
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
   <title>Practice Mirror</title>
 
-  <!-- Offline First: System Fonts & Inline SVGs used instead of external assets -->
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
   <link rel="stylesheet" href="style.css?v=v20260716091100">
 </head>
 
@@ -99,7 +103,10 @@
             <div class="audio-meter-track">
               <div id="audio-level-bar" class="audio-meter-level"></div>
             </div>
-            <span class="audio-meter-label">Audio Level</span>
+            <div class="audio-meter-footer">
+              <span class="audio-meter-label">Audio Level</span>
+              <span id="audio-clip-indicator" class="audio-clip-indicator" title="Audio clipping / distortion warning">CLIP</span>
+            </div>
           </div>
         </div>
 
@@ -236,32 +243,128 @@
           </svg>
         </button>
       </div>
-      <div class="settings-content">
-        <!-- Auth Section -->
-        <div class="auth-card">
+      <div class="settings-content" id="device-selectors">
+        <!-- Section 1: Audio & Gain -->
+        <section class="settings-card" aria-labelledby="settings-audio-title">
+          <h3 id="settings-audio-title" class="settings-card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z"/>
+              <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/>
+            </svg>
+            Audio &amp; Gain
+          </h3>
+
+          <div class="setting-group">
+            <label for="mic-select">Microphone</label>
+            <div class="select-wrapper">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
+                <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
+              </svg>
+              <select id="mic-select" aria-label="Select Microphone">
+                <option value="">Loading mics...</option>
+              </select>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="setting-group">
+            <div class="setting-header-row">
+              <label for="mic-gain-slider">Mic Input Gain</label>
+              <span id="mic-gain-val" class="setting-value-badge">100%</span>
+            </div>
+            <div class="slider-wrapper">
+              <input type="range" id="mic-gain-slider" min="0" max="200" step="5" value="100" aria-label="Microphone Gain">
+            </div>
+            <p class="setting-hint">Music mode active: uncompressed 48 kHz stereo (DSP filters disabled).</p>
+          </div>
+        </section>
+
+        <!-- Section 2: Camera & Video Quality -->
+        <section class="settings-card" aria-labelledby="settings-video-title">
+          <h3 id="settings-video-title" class="settings-card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z"/>
+              <circle cx="12" cy="13" r="4"/>
+            </svg>
+            Camera &amp; Video Quality
+          </h3>
+
+          <div class="setting-group">
+            <label for="camera-select">Camera</label>
+            <div class="select-wrapper">
+              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
+                <circle cx="12" cy="13" r="4" />
+              </svg>
+              <select id="camera-select" aria-label="Select Camera">
+                <option value="">Loading cameras...</option>
+              </select>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+          </div>
+
+          <div class="settings-grid-row">
+            <div class="setting-group">
+              <label for="resolution-select">Resolution</label>
+              <div class="select-wrapper">
+                <select id="resolution-select" aria-label="Select Video Resolution">
+                  <option value="720">720p (HD)</option>
+                  <option value="1080" selected>1080p (Full HD)</option>
+                  <option value="2160">2160p (4K)</option>
+                </select>
+                <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </div>
+            </div>
+
+            <div class="setting-group">
+              <label for="format-select">Format</label>
+              <div class="select-wrapper">
+                <select id="format-select" aria-label="Select Download Format">
+                  <option value="mp4">MP4 (Default)</option>
+                  <option value="webm">WebM</option>
+                </select>
+                <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                  <path d="M6 9l6 6 6-6" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          <p class="setting-hint">MP4 with 320k AAC is ready for DaVinci Resolve, Premiere Pro &amp; YouTube.</p>
+        </section>
+
+        <!-- Section 3: YouTube Account -->
+        <section class="settings-card auth-card" aria-labelledby="settings-youtube-title">
+          <h3 id="settings-youtube-title" class="settings-card-title">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M21.582 6.186a2.632 2.632 0 0 0-1.85-1.85C18.096 3.895 12 3.895 12 3.895s-6.096 0-7.732.441a2.632 2.632 0 0 0-1.85 1.85C2.08 7.822 2.08 12 2.08 12s0 4.178.338 5.814a2.632 2.632 0 0 0 1.85 1.85c1.636.441 7.732.441 7.732.441s6.096 0 7.732-.441a2.632 2.632 0 0 0 1.85-1.85c.338-1.636.338-5.814.338-5.814s0-4.178-.338-5.814zM9.997 15.542v-7.084l6.216 3.542z"/>
+            </svg>
+            YouTube Account
+          </h3>
+
           <div id="auth-unlogged" class="auth-section">
-            <h3 class="auth-title">Post to YouTube</h3>
-            <p class="auth-desc">Sign in with Google to enable direct uploads to your YouTube channel.</p>
+            <p class="auth-desc">Sign in with Google to post practice recordings directly to your YouTube channel.</p>
             <button id="google-signin-custom" class="google-signin-btn">
-              <svg viewBox="0 0 48 48" width="20" height="20">
-                <path fill="#EA4335"
-                  d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
-                <path fill="#4285F4"
-                  d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
-                <path fill="#FBBC05"
-                  d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
-                <path fill="#34A853"
-                  d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+              <svg viewBox="0 0 48 48" width="18" height="18">
+                <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+                <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+                <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+                <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
                 <path fill="none" d="M0 0h48v48H0z" />
               </svg>
               <span>Sign in with Google</span>
             </button>
-            <p style="margin-top: 10px; font-size: 11px; text-align: center; color: var(--color-text-muted, #8e8e93);">
-              By signing in, you agree to our <a href="/privacy.html" target="_blank" rel="noopener noreferrer"
-                style="color: var(--color-accent, #bf5af2); text-decoration: underline;">Privacy Policy</a> and <a href="/terms.html" target="_blank" rel="noopener noreferrer"
-                style="color: var(--color-accent, #bf5af2); text-decoration: underline;">Terms of Service</a>.
+            <p class="auth-legal-hint">
+              By signing in, you agree to our <a href="/privacy.html" target="_blank" rel="noopener noreferrer">Privacy Policy</a> and <a href="/terms.html" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
             </p>
           </div>
+
           <div id="auth-logged" class="auth-section hidden">
             <div class="user-info">
               <img id="user-photo" class="user-photo" src="" alt="User" draggable="false" crossorigin="anonymous">
@@ -272,91 +375,7 @@
             </div>
             <button id="signout-btn" class="signout-btn">Sign out</button>
           </div>
-        </div>
-
-        <div class="device-selectors" id="device-selectors">
-          <div class="setting-group">
-            <label for="camera-select">Camera</label>
-            <div class="select-wrapper">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" viewBox="0 0 24 24">
-                <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" />
-                <circle cx="12" cy="13" r="4" />
-              </svg>
-              <select id="camera-select" aria-label="Select Camera">
-                <option value="">Loading cameras...</option>
-              </select>
-              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-          </div>
-          <div class="setting-group">
-            <label for="mic-select">Microphone</label>
-            <div class="select-wrapper">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" viewBox="0 0 24 24">
-                <path d="M12 1a3 3 0 00-3 3v8a3 3 0 006 0V4a3 3 0 00-3-3z" />
-                <path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8" />
-              </svg>
-              <select id="mic-select" aria-label="Select Microphone">
-                <option value="">Loading mics...</option>
-              </select>
-            </div>
-          </div>
-          <div class="setting-group">
-            <label for="resolution-select">Recording Resolution</label>
-            <div class="select-wrapper">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" viewBox="0 0 24 24">
-                <rect x="2" y="7" width="20" height="15" rx="2" ry="2" />
-                <polyline points="17 2 12 7 7 2" />
-              </svg>
-              <select id="resolution-select" aria-label="Select Video Resolution">
-                <option value="720">720p (HD)</option>
-                <option value="1080" selected>1080p (Full HD)</option>
-                <option value="2160">2160p (4K)</option>
-              </select>
-              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-          </div>
-          <div class="setting-group">
-            <label for="format-select">Video Format</label>
-            <p class="setting-hint">Output when you use Edit → Process. MP4 works everywhere (phones, social, editors).
-              WebM is smaller and open; some apps don’t support it.</p>
-            <div class="select-wrapper">
-              <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-                stroke-linejoin="round" viewBox="0 0 24 24">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-                <polyline points="14 2 14 8 20 8"></polyline>
-                <line x1="16" y1="13" x2="8" y2="13"></line>
-                <line x1="16" y1="17" x2="8" y2="17"></line>
-                <polyline points="10 9 9 9 8 9"></polyline>
-              </svg>
-              <select id="format-select" aria-label="Select Download Format">
-                <option value="mp4">MP4 (Default)</option>
-                <option value="webm">WebM</option>
-              </select>
-              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2"
-                stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
-                <path d="M6 9l6 6 6-6" />
-              </svg>
-            </div>
-          </div>
-        </div>
-        <div
-          style="margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--color-border-subtle, #38383a); text-align: center; font-size: 12px;">
-          <a href="/about.html" target="_blank" rel="noopener noreferrer"
-            style="color: var(--color-accent, #bf5af2); text-decoration: underline; margin-right: 12px;">About</a>
-          <a href="/privacy.html" target="_blank" rel="noopener noreferrer"
-            style="color: var(--color-accent, #bf5af2); text-decoration: underline; margin-right: 12px;">Privacy Policy</a>
-          <a href="/terms.html" target="_blank" rel="noopener noreferrer"
-            style="color: var(--color-accent, #bf5af2); text-decoration: underline;">Terms of Service</a>
-        </div>
+        </section>
       </div>
     </div>
 
