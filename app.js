@@ -1234,59 +1234,101 @@ async function processVideo() {
 
     await ffmpeg.writeFile(inputName, new Uint8Array(videoData));
 
-    let ffmpegArgs = [];
-    if (start > 0) {
-      ffmpegArgs.push('-ss', start.toString());
+    // DaVinci Resolve compatible: H.264 High profile yuv420p + AAC 320k 48kHz stereo + faststart moov atom
+    // Fast path: If already MP4 (H.264) without video filters, stream-copy video (-c:v copy) in ~1-2s
+    const canCopyVideo = (inputFormat === 'mp4' && outputFormat === 'mp4' && !addFade);
+
+    const buildArgs = (useCopy) => {
+      let args = [];
+      if (start > 0) {
+        args.push('-ss', start.toString());
+      }
+      args.push('-i', inputName);
+      if (end > start) {
+        args.push('-t', duration.toString());
+      }
+
+      if (addFade && duration > 2) {
+        // 1-second fade in and out 
+        const fadeOutStart = duration - 1;
+        args.push('-vf', `fade=t=in:st=0:d=1,fade=t=out:st=${fadeOutStart}:d=1`);
+        args.push('-af', `afade=t=in:st=0:d=1,afade=t=out:st=${fadeOutStart}:d=1`);
+      }
+
+      if (outputFormat === 'mp4') {
+        if (useCopy) {
+          // Fast remux: preserve H.264 stream, transcode/ensure AAC 48k stereo audio, write faststart moov
+          args.push(
+            '-c:v', 'copy',
+            '-c:a', 'aac',
+            '-b:a', '320k',
+            '-ar', '48000',
+            '-ac', '2',
+            '-movflags', '+faststart'
+          );
+        } else {
+          // Transcode path: H.264 High profile yuv420p for Resolve with ultrafast preset
+          args.push(
+            '-c:v', 'libx264',
+            '-preset', 'ultrafast',
+            '-crf', '20',
+            '-pix_fmt', 'yuv420p',
+            '-c:a', 'aac',
+            '-b:a', '320k',
+            '-ar', '48000',
+            '-ac', '2',
+            '-movflags', '+faststart'
+          );
+        }
+      } else {
+        // WebM export
+        if (useCopy && inputFormat === 'webm') {
+          args.push('-c:v', 'copy', '-c:a', 'libopus', '-b:a', '256k', '-ar', '48000');
+        } else {
+          args.push(
+            '-c:v', 'libvpx-vp9',
+            '-b:v', '0',
+            '-crf', '24',
+            '-deadline', 'realtime',
+            '-cpu-used', '8',
+            '-c:a', 'libopus',
+            '-b:a', '256k',
+            '-ar', '48000'
+          );
+        }
+      }
+
+      args.push(outputName);
+      return args;
+    };
+
+    let exitCode = -1;
+    if (canCopyVideo) {
+      try {
+        console.log('Attempting fast stream-copy remux for DaVinci Resolve compatibility...');
+        exitCode = await ffmpeg.exec(buildArgs(true));
+      } catch (copyErr) {
+        console.warn('Stream copy failed, falling back to full transcode:', copyErr);
+        exitCode = -1;
+      }
     }
 
-    ffmpegArgs.push('-i', inputName);
-
-    if (end > start) {
-      ffmpegArgs.push('-t', duration.toString());
-    }
-
-    if (addFade && duration > 2) {
-      // 1-second fade in and out 
-      const fadeOutStart = duration - 1;
-      ffmpegArgs.push('-vf', `fade=t=in:st=0:d=1,fade=t=out:st=${fadeOutStart}:d=1`);
-      ffmpegArgs.push('-af', `afade=t=in:st=0:d=1,afade=t=out:st=${fadeOutStart}:d=1`);
-    }
-
-    // DaVinci Resolve / Premiere Pro / Final Cut / YouTube compatible MP4 encoding:
-    // H.264 High profile yuv420p + AAC 320k 48kHz stereo + faststart moov atom
-    if (outputFormat === 'mp4') {
-      ffmpegArgs.push(
-        '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '19',
-        '-pix_fmt', 'yuv420p',
-        '-c:a', 'aac',
-        '-b:a', '320k',
-        '-ar', '48000',
-        '-ac', '2',
-        '-movflags', '+faststart'
-      );
-    } else {
-      // High-quality WebM VP9 + Opus
-      ffmpegArgs.push(
-        '-c:v', 'libvpx-vp9',
-        '-b:v', '0',
-        '-crf', '24',
-        '-c:a', 'libopus',
-        '-b:a', '256k',
-        '-ar', '48000'
-      );
-    }
-
-    ffmpegArgs.push(outputName);
-
-    const exitCode = await ffmpeg.exec(ffmpegArgs);
     if (exitCode !== 0) {
-      throw new Error(`FFmpeg exited with code ${exitCode}`);
+      console.log('Running full transcode for DaVinci Resolve compatibility...');
+      exitCode = await ffmpeg.exec(buildArgs(false));
+      if (exitCode !== 0) {
+        throw new Error(`FFmpeg exited with code ${exitCode}`);
+      }
     }
 
     const outputData = await ffmpeg.readFile(outputName);
     const processedBlob = new Blob([outputData], { type: `video/${outputFormat === 'mp4' ? 'mp4' : 'webm'}` });
+
+    // Clean up temporary files from FFmpeg memory
+    try {
+      await ffmpeg.deleteFile(inputName);
+      await ffmpeg.deleteFile(outputName);
+    } catch (_) {}
 
     // Safeguard: Update session storage with processed video
     await saveVideoToSession(processedBlob, outputFormat);
@@ -1659,7 +1701,9 @@ function getSupportedMimeType(preferredFormat = 'mp4') {
   if (preferredFormat === 'mp4') {
     types = [
       'video/mp4;codecs=avc1,mp4a.40.2',
+      'video/mp4;codecs=avc1,aac',
       'video/mp4;codecs=avc1',
+      'video/mp4;codecs=h264',
       'video/mp4'
     ];
   } else {
