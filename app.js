@@ -173,10 +173,10 @@ async function init() {
     if (savedResolution) resolutionSelect.value = savedResolution;
     liveVideo.classList.add('beauty-filter');
 
-    // Try initial permissions with saved devices
+    // Try initial permissions with saved devices and full resolution constraints
     try {
       const initialConstraints = {
-        video: savedCameraId ? { deviceId: { exact: savedCameraId } } : true,
+        video: getVideoConstraints(savedCameraId),
         audio: getAudioConstraints(savedMicId)
       };
       mediaStream = await navigator.mediaDevices.getUserMedia(initialConstraints);
@@ -190,18 +190,24 @@ async function init() {
 
         if (fallbackCameraId || fallbackMicId) {
           const fallbackConstraints = {
-            video: fallbackCameraId ? { deviceId: { exact: fallbackCameraId } } : true,
+            video: getVideoConstraints(fallbackCameraId),
             audio: getAudioConstraints(fallbackMicId)
           };
           mediaStream = await navigator.mediaDevices.getUserMedia(fallbackConstraints);
         } else {
-          // No label match either, go with music-safe defaults
-          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: getAudioConstraints() });
+          // No label match either, go with music-safe defaults at selected resolution
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: getVideoConstraints(),
+            audio: getAudioConstraints()
+          });
         }
       } catch (fallbackErr) {
         console.warn('All device restoration attempts failed, using defaults.', fallbackErr);
         try {
-          mediaStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: getAudioConstraints() });
+          mediaStream = await navigator.mediaDevices.getUserMedia({
+            video: getVideoConstraints(),
+            audio: getAudioConstraints()
+          });
         } catch (defaultErr) {
           console.warn('Total media access denial.', defaultErr);
         }
@@ -223,9 +229,12 @@ async function init() {
     syncSelectorsToActiveStream();
 
     if (mediaStream) {
-      // Apply full selected resolution and constraints
-      // This is necessary because the initial getUserMedia might have used defaults
-      await startCamera();
+      liveVideo.srcObject = mediaStream;
+      liveVideo.muted = true;
+      setState(STATE.IDLE);
+      updatePreviewUI();
+      updateDeviceOverlayDisplay();
+      setupAudioLevelMeter(mediaStream);
     } else {
       setState(STATE.IDLE);
       updatePreviewUI();
@@ -368,7 +377,7 @@ function promptConnectDevice(device, isMic) {
 
   const iconSvg = isMic
     ? `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 01-14 0v-2M12 19v4M8 23h8"/></svg>`
-    : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 12-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
+    : `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>`;
 
   banner.innerHTML = `
     <div class="device-prompt-icon">${iconSvg}</div>
@@ -492,20 +501,8 @@ function getAudioConstraints(audioSourceId) {
   return audioConstraints;
 }
 
-async function startCamera() {
-  // If preview was stopped, clear that flag
-  isPreviewStopped = false;
-
-  // Stop any existing stream tracks first
-  if (mediaStream) {
-    mediaStream.getTracks().forEach(track => track.stop());
-  }
-
-  const videoSource = cameraSelect.value;
-  const audioSource = micSelect.value;
-
-  // Determine resolution constraints
-  const resVal = resolutionSelect.value || '1080';
+function getVideoConstraints(videoSourceId) {
+  const resVal = (resolutionSelect && resolutionSelect.value) || '1080';
   let widthConstraint = { ideal: 1920 };
   let heightConstraint = { ideal: 1080 };
 
@@ -520,15 +517,28 @@ async function startCamera() {
   const videoConstraints = {
     width: widthConstraint,
     height: heightConstraint,
+    frameRate: { ideal: 30 },
     backgroundBlur: false // Explicitly request no background blur from the OS/Browser
   };
 
-  if (videoSource) {
-    videoConstraints.deviceId = { exact: videoSource };
+  if (videoSourceId) {
+    videoConstraints.deviceId = { exact: videoSourceId };
   }
 
+  return videoConstraints;
+}
+
+async function startCamera() {
+  // Stop any existing stream tracks first
+  if (mediaStream) {
+    mediaStream.getTracks().forEach(track => track.stop());
+  }
+
+  const videoSource = cameraSelect.value;
+  const audioSource = micSelect.value;
+
   const constraints = {
-    video: videoConstraints,
+    video: getVideoConstraints(videoSource),
     audio: getAudioConstraints(audioSource)
   };
 
@@ -719,7 +729,7 @@ function setupEventListeners() {
 
   editBtn.addEventListener('click', () => {
     const expanded = editBtn.getAttribute('aria-expanded') === 'true';
-    editBtn.setAttribute('aria-expanded', !expanded);
+    editBtn.setAttribute('aria-expanded', String(!expanded));
     editBtn.setAttribute('aria-label', expanded ? 'Edit video' : 'Close edit pane');
     editBtn.innerHTML = expanded ? EDIT_ICON : CLOSE_ICON;
     editingPanel.hidden = expanded;
@@ -814,31 +824,40 @@ function startRecording() {
   const mimeType = getSupportedMimeType(selectedFormat);
   const resVal = resolutionSelect ? resolutionSelect.value : '1080';
 
-  // High-bitrate video allocation for YouTube & NLE editing
-  let videoBitsPerSecond = 12000000; // 12 Mbps default for 1080p
+  // High-bitrate video allocation for YouTube & NLE editing (real-time hardware encoders need higher bitrate than 2-pass software x264)
+  let videoBitsPerSecond = 20000000; // 20 Mbps default for 1080p
   if (resVal === '720') {
-    videoBitsPerSecond = 6000000; // 6 Mbps
+    videoBitsPerSecond = 10000000; // 10 Mbps
   } else if (resVal === '2160') {
-    videoBitsPerSecond = 30000000; // 30 Mbps
+    videoBitsPerSecond = 45000000; // 45 Mbps
   }
-  const audioBitsPerSecond = 320000; // 320 kbps studio-grade music audio
 
-  const options = {
-    mimeType,
-    videoBitsPerSecond,
-    audioBitsPerSecond
-  };
+  // Try candidate option sets while preserving videoBitsPerSecond even if audioBitsPerSecond or specific codec string is rejected
+  const candidateOptions = [
+    ...(mimeType ? [
+      { mimeType, videoBitsPerSecond, audioBitsPerSecond: 256000 },
+      { mimeType, videoBitsPerSecond, audioBitsPerSecond: 192000 },
+      { mimeType, videoBitsPerSecond }
+    ] : []),
+    ...(selectedFormat === 'mp4' && MediaRecorder.isTypeSupported('video/mp4') ? [
+      { mimeType: 'video/mp4', videoBitsPerSecond, audioBitsPerSecond: 256000 },
+      { mimeType: 'video/mp4', videoBitsPerSecond }
+    ] : []),
+    { videoBitsPerSecond },
+    ...(mimeType ? [{ mimeType }] : [])
+  ];
 
-  try {
-    mediaRecorder = new MediaRecorder(streamToRecord, options);
-  } catch (e) {
-    console.warn('MediaRecorder with bitrate options failed, falling back to basic mimeType:', e);
+  mediaRecorder = null;
+  for (const opts of candidateOptions) {
     try {
-      mediaRecorder = new MediaRecorder(streamToRecord, { mimeType });
-    } catch (e2) {
-      console.error('MediaRecorder fallback to default:', e2);
-      mediaRecorder = new MediaRecorder(streamToRecord);
+      mediaRecorder = new MediaRecorder(streamToRecord, opts);
+      break;
+    } catch (e) {
+      console.warn('MediaRecorder option candidate rejected, trying next:', opts, e);
     }
+  }
+  if (!mediaRecorder) {
+    mediaRecorder = new MediaRecorder(streamToRecord);
   }
 
   mediaRecorder.ondataavailable = (event) => {
@@ -1267,11 +1286,12 @@ async function processVideo() {
             '-movflags', '+faststart'
           );
         } else {
-          // Transcode path: H.264 High profile yuv420p for Resolve with ultrafast preset
+          // Transcode path: H.264 High profile yuv420p for Resolve (superfast + CRF 16 enables High profile 8x8dct, CABAC, deblocking, AQ, and fine i4/i8 partitions while staying fast)
           args.push(
             '-c:v', 'libx264',
-            '-preset', 'ultrafast',
-            '-crf', '20',
+            '-preset', 'superfast',
+            '-crf', '16',
+            '-profile:v', 'high',
             '-pix_fmt', 'yuv420p',
             '-c:a', 'aac',
             '-b:a', '320k',
@@ -1288,9 +1308,9 @@ async function processVideo() {
           args.push(
             '-c:v', 'libvpx-vp9',
             '-b:v', '0',
-            '-crf', '24',
+            '-crf', '18',
             '-deadline', 'realtime',
-            '-cpu-used', '8',
+            '-cpu-used', '5',
             '-c:a', 'libopus',
             '-b:a', '256k',
             '-ar', '48000'
@@ -1699,11 +1719,20 @@ async function uploadVideoToYouTube(accessToken, blob, mimeType, title, privacyS
 function getSupportedMimeType(preferredFormat = 'mp4') {
   let types = [];
   if (preferredFormat === 'mp4') {
+    // Use explicit RFC 6381 H.264 profile/level + audio codec strings so browsers:
+    // 1. Encode in High/Main Profile (instead of defaulting to Constrained Baseline), and
+    // 2. Include an audio codec in codecs= so MediaRecorder does not reject audio+video streams.
     types = [
-      'video/mp4;codecs=avc1,mp4a.40.2',
-      'video/mp4;codecs=avc1,aac',
-      'video/mp4;codecs=avc1',
-      'video/mp4;codecs=h264',
+      'video/mp4;codecs=avc1.640034,mp4a.40.2', // H.264 High Profile L5.2 + AAC-LC (4K / high-bitrate 1080p)
+      'video/mp4;codecs=avc1.64002A,mp4a.40.2', // H.264 High Profile L4.2 + AAC-LC (1080p60)
+      'video/mp4;codecs=avc1.640028,mp4a.40.2', // H.264 High Profile L4.0 + AAC-LC (1080p30)
+      'video/mp4;codecs=avc1.4D4028,mp4a.40.2', // H.264 Main Profile L4.0 + AAC-LC
+      'video/mp4;codecs=avc1.42E01F,mp4a.40.2', // H.264 Baseline Profile L3.1 + AAC-LC
+      'video/mp4;codecs=avc1.64002A,opus',
+      'video/mp4;codecs=avc1.640028,opus',
+      'video/mp4;codecs=h264,mp4a.40.2',
+      'video/mp4;codecs=h264,aac',
+      'video/mp4;codecs=h264,opus',
       'video/mp4'
     ];
   } else {
@@ -1887,7 +1916,7 @@ async function handleTokenResponse(response) {
 
     // Persist profile in localStorage, token in sessionStorage
     localStorage.setItem('pm-user-profile', JSON.stringify(userProfile));
-    localStorage.setItem('pm-login-timestamp', Date.now());
+    localStorage.setItem('pm-login-timestamp', String(Date.now()));
     sessionStorage.setItem('pm-access-token', accessToken);
 
     updateAuthUI();
