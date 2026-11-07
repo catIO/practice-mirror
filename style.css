@@ -95,6 +95,12 @@ body {
   line-height: 1;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .icon-btn {
   position: relative;
   background: transparent;
@@ -113,6 +119,15 @@ body {
 .icon-btn:hover {
   color: var(--text-primary);
   background: var(--panel-bg);
+}
+
+.icon-btn.active {
+  color: var(--accent-color, #3b82f6);
+  background: rgba(59, 130, 246, 0.15);
+}
+
+.icon-btn.active:hover {
+  background: rgba(59, 130, 246, 0.25);
 }
 
 /* Viewport Section */
@@ -171,10 +186,13 @@ video {
   /* Prevent cropping, keep full 16:9 frame */
   border-radius: var(--border-radius-lg);
   /* Apply a slight scale for visual depth */
-  transition: filter 0.3s ease;
+  transition: filter 0.3s ease, transform 0.2s ease;
 }
 
-/* No transforms to avoid browser rendering and click/hover offsets on native video controls */
+video.mirrored {
+  transform: scaleX(-1);
+  -webkit-transform: scaleX(-1);
+}
 
 /* Beauty Filter */
 .beauty-filter {

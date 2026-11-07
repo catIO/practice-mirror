@@ -42,6 +42,9 @@ const liveVideo = document.getElementById('live-video');
 const playbackVideo = document.getElementById('playback-video');
 const cameraSelect = document.getElementById('camera-select');
 const micSelect = document.getElementById('mic-select');
+const mirrorBtn = document.getElementById('mirror-btn');
+const mirrorSwitch = document.getElementById('mirror-switch');
+let isMirrored = false;
 const recordBtn = document.getElementById('record-btn');
 const recordCountdownEl = document.getElementById('record-countdown');
 let countdownTimeoutIds = [];
@@ -54,6 +57,7 @@ const downloadBtn = document.getElementById('download-btn');
 const youtubeBtn = document.getElementById('youtube-btn');
 const formatSelect = document.getElementById('format-select');
 const resolutionSelect = document.getElementById('resolution-select');
+const exportModeSelect = document.getElementById('export-mode-select');
 const videoContainer = document.getElementById('video-container');
 const previewOffHoverBtn = document.getElementById('preview-off-hover-btn');
 const previewPlaceholder = document.getElementById('preview-off-placeholder');
@@ -171,7 +175,12 @@ async function init() {
 
     if (savedFormat) formatSelect.value = savedFormat;
     if (savedResolution) resolutionSelect.value = savedResolution;
+    const savedExportMode = localStorage.getItem('pm-export-mode');
+    if (savedExportMode && exportModeSelect) exportModeSelect.value = savedExportMode;
     liveVideo.classList.add('beauty-filter');
+
+    const savedMirror = localStorage.getItem('pm-mirror');
+    setMirrorMode(savedMirror === 'true', false);
 
     // Try initial permissions with saved devices and full resolution constraints
     try {
@@ -247,13 +256,13 @@ async function init() {
         initialDevices.forEach(d => {
           if (d.deviceId) knownDeviceIds.add(d.deviceId);
         });
-      } catch (e) {}
+      } catch (e) { }
 
       navigator.mediaDevices.addEventListener('devicechange', async () => {
         console.log('--- Media Device Change Detected ---');
         const oldCameraValue = cameraSelect.value;
         const oldMicValue = micSelect.value;
-        
+
         let freshDevices = [];
         try {
           freshDevices = await navigator.mediaDevices.enumerateDevices();
@@ -263,7 +272,7 @@ async function init() {
         }
 
         // Identify any newly connected devices that were not present previously
-        const newlyAdded = freshDevices.filter(d => 
+        const newlyAdded = freshDevices.filter(d =>
           d.deviceId &&
           !knownDeviceIds.has(d.deviceId) &&
           d.deviceId !== 'default' &&
@@ -276,7 +285,7 @@ async function init() {
         });
 
         await populateDeviceSelectors();
-        
+
         // Preserve previously selected devices if they still exist in the new options list
         if (oldCameraValue && Array.from(cameraSelect.options).some(opt => opt.value === oldCameraValue)) {
           cameraSelect.value = oldCameraValue;
@@ -284,7 +293,7 @@ async function init() {
         if (oldMicValue && Array.from(micSelect.options).some(opt => opt.value === oldMicValue)) {
           micSelect.value = oldMicValue;
         }
-        
+
         // Synchronize select values to the actually running stream tracks (if any)
         syncSelectorsToActiveStream();
 
@@ -432,6 +441,27 @@ function dismissDevicePrompt() {
     setTimeout(() => {
       if (banner.parentNode) banner.remove();
     }, 250);
+  }
+}
+
+function setMirrorMode(enabled, showToastNotification = false) {
+  isMirrored = !!enabled;
+  localStorage.setItem('pm-mirror', isMirrored ? 'true' : 'false');
+
+  if (liveVideo) liveVideo.classList.toggle('mirrored', isMirrored);
+  if (playbackVideo) playbackVideo.classList.toggle('mirrored', isMirrored);
+
+  if (mirrorSwitch) mirrorSwitch.checked = isMirrored;
+  if (mirrorBtn) {
+    mirrorBtn.classList.toggle('active', isMirrored);
+    mirrorBtn.setAttribute('aria-pressed', String(isMirrored));
+    const label = isMirrored ? 'Mirror view: ON (M)' : 'Mirror view: OFF (M)';
+    mirrorBtn.setAttribute('aria-label', label);
+    mirrorBtn.setAttribute('title', label);
+  }
+
+  if (showToastNotification) {
+    showToast(isMirrored ? 'Mirror view enabled' : 'Mirror view disabled', 'info');
   }
 }
 
@@ -623,6 +653,24 @@ function setupEventListeners() {
     localStorage.setItem('pm-format', formatSelect.value);
   });
 
+  if (exportModeSelect) {
+    exportModeSelect.addEventListener('change', () => {
+      localStorage.setItem('pm-export-mode', exportModeSelect.value);
+    });
+  }
+
+  if (mirrorBtn) {
+    mirrorBtn.addEventListener('click', () => {
+      setMirrorMode(!isMirrored, true);
+    });
+  }
+
+  if (mirrorSwitch) {
+    mirrorSwitch.addEventListener('change', () => {
+      setMirrorMode(mirrorSwitch.checked, true);
+    });
+  }
+
   previewOffHoverBtn.addEventListener('click', stopPreview);
   previewOnBtn.addEventListener('click', () => startCamera());
 
@@ -701,6 +749,12 @@ function setupEventListeners() {
       } else if (currentState === STATE.PLAYBACK) {
         playBtn.click();
       }
+      return;
+    }
+
+    if ((e.key === 'm' || e.key === 'M') && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      e.preventDefault();
+      setMirrorMode(!isMirrored, true);
       return;
     }
 
@@ -1141,7 +1195,7 @@ async function generateThumbnails(blob) {
             const img = document.createElement('img');
             img.src = canvas.toDataURL('image/jpeg', 0.7);
             fragment.appendChild(img);
-          } catch (e) {}
+          } catch (e) { }
           resolve();
         };
         const timer = setTimeout(capture, 250);
@@ -1253,9 +1307,12 @@ async function processVideo() {
 
     await ffmpeg.writeFile(inputName, new Uint8Array(videoData));
 
-    // DaVinci Resolve compatible: H.264 High profile yuv420p + AAC 320k 48kHz stereo + faststart moov atom
-    // Fast path: If already MP4 (H.264) without video filters, stream-copy video (-c:v copy) in ~1-2s
-    const canCopyVideo = (inputFormat === 'mp4' && outputFormat === 'mp4' && !addFade);
+    // DaVinci Resolve & YouTube compatible: H.264 High profile yuv420p + AAC 320k 48kHz stereo + faststart moov atom
+    const exportMode = (exportModeSelect && exportModeSelect.value) || localStorage.getItem('pm-export-mode') || 'quality';
+
+    // Stream-copy is ONLY allowed in Fast Remux mode AND when start is untrimmed (start === 0).
+    // Trimming with -c:v copy snaps to sparse/inconsistent keyframes from MediaRecorder and corrupts the video stream.
+    const canCopyVideo = (exportMode === 'fast' && start === 0 && inputFormat === outputFormat && !addFade);
 
     const buildArgs = (useCopy) => {
       let args = [];
@@ -1286,13 +1343,20 @@ async function processVideo() {
             '-movflags', '+faststart'
           );
         } else {
-          // Transcode path: H.264 High profile yuv420p for Resolve (superfast + CRF 16 enables High profile 8x8dct, CABAC, deblocking, AQ, and fine i4/i8 partitions while staying fast)
+          // Pristine Quality Transcode path for YouTube & DaVinci Resolve:
+          // Superfast preset with CRF 16 (visually lossless), High Profile, closed 1s keyframes (-g 30),
+          // explicit BT.709 colorimetry tags, 320k AAC audio, and +faststart MOOV atom.
           args.push(
             '-c:v', 'libx264',
             '-preset', 'superfast',
             '-crf', '16',
             '-profile:v', 'high',
             '-pix_fmt', 'yuv420p',
+            '-g', '30',
+            '-keyint_min', '30',
+            '-colorspace', 'bt709',
+            '-color_primaries', 'bt709',
+            '-color_trc', 'bt709',
             '-c:a', 'aac',
             '-b:a', '320k',
             '-ar', '48000',
@@ -1310,7 +1374,8 @@ async function processVideo() {
             '-b:v', '0',
             '-crf', '18',
             '-deadline', 'realtime',
-            '-cpu-used', '5',
+            '-cpu-used', '4',
+            '-g', '30',
             '-c:a', 'libopus',
             '-b:a', '256k',
             '-ar', '48000'
@@ -1325,7 +1390,7 @@ async function processVideo() {
     let exitCode = -1;
     if (canCopyVideo) {
       try {
-        console.log('Attempting fast stream-copy remux for DaVinci Resolve compatibility...');
+        console.log('Attempting fast stream-copy remux...');
         exitCode = await ffmpeg.exec(buildArgs(true));
       } catch (copyErr) {
         console.warn('Stream copy failed, falling back to full transcode:', copyErr);
@@ -1334,7 +1399,7 @@ async function processVideo() {
     }
 
     if (exitCode !== 0) {
-      console.log('Running full transcode for DaVinci Resolve compatibility...');
+      console.log('Running high-quality transcode for YouTube & DaVinci Resolve compatibility...');
       exitCode = await ffmpeg.exec(buildArgs(false));
       if (exitCode !== 0) {
         throw new Error(`FFmpeg exited with code ${exitCode}`);
@@ -1348,7 +1413,7 @@ async function processVideo() {
     try {
       await ffmpeg.deleteFile(inputName);
       await ffmpeg.deleteFile(outputName);
-    } catch (_) {}
+    } catch (_) { }
 
     // Safeguard: Update session storage with processed video
     await saveVideoToSession(processedBlob, outputFormat);
@@ -1368,14 +1433,14 @@ async function processVideo() {
       updateTimelineFromInputs();
       generateThumbnails(processedBlob);
       showToast('Processing complete', 'success');
-      
+
       // Close the edit UI
       editBtn.setAttribute('aria-expanded', 'false');
       editBtn.innerHTML = EDIT_ICON;
       editingPanel.hidden = true;
       editingTools.classList.remove('editing-tools--expanded');
       editBtn.focus();
-      
+
       playbackVideo.onloadedmetadata = null;
     };
 
@@ -1490,7 +1555,7 @@ function setState(newState) {
     recordingTimeEl.textContent = '00:00';
     showOverlay('Ready to Practice');
     updatePreviewUI();
-    
+
     if (mediaStream) {
       setupAudioLevelMeter(mediaStream);
     }
@@ -2065,7 +2130,7 @@ function setupDraggableDeviceOverlay() {
     overlay.classList.add('is-dragging');
     try {
       overlay.setPointerCapture(e.pointerId);
-    } catch (_) {}
+    } catch (_) { }
     e.preventDefault();
   };
 
@@ -2096,7 +2161,7 @@ function setupDraggableDeviceOverlay() {
     overlay.classList.remove('is-dragging');
     try {
       overlay.releasePointerCapture(e.pointerId);
-    } catch (_) {}
+    } catch (_) { }
 
     const containerRect = container.getBoundingClientRect();
     const overlayRect = overlay.getBoundingClientRect();
@@ -2160,14 +2225,14 @@ function updateDeviceOverlayDisplay() {
 
   if (hasStream && isIdleOrRecording) {
     overlay.classList.remove('hidden');
-    
+
     // Update camera name
     const cameraNameEl = document.getElementById('active-camera-name');
     if (cameraNameEl && cameraSelect) {
       const activeCameraLabel = cameraSelect.options[cameraSelect.selectedIndex]?.text || 'Default Camera';
       cameraNameEl.textContent = activeCameraLabel;
     }
-    
+
     // Update mic name
     const micNameEl = document.getElementById('active-mic-name');
     if (micNameEl && micSelect) {
@@ -2192,7 +2257,7 @@ function setupAudioLevelMeter(stream) {
     updateAudioMeterUI(0, false);
     return;
   }
-  
+
   const micInfoEl = document.getElementById('active-mic-info');
   if (micInfoEl) micInfoEl.style.color = '';
 
@@ -2202,7 +2267,7 @@ function setupAudioLevelMeter(stream) {
       const AudioContextClass = window.AudioContext || window.webkitAudioContext;
       audioCtx = new AudioContextClass({ latencyHint: 'interactive' });
     }
-    
+
     analyserNode = audioCtx.createAnalyser();
     analyserNode.fftSize = 512;
     analyserNode.smoothingTimeConstant = 0.2;
@@ -2225,7 +2290,7 @@ function setupAudioLevelMeter(stream) {
     // Auto-resume AudioContext if suspended (browser autoplay policy)
     if (audioCtx.state === 'suspended') {
       // Try immediate resume first
-      audioCtx.resume().catch(() => {});
+      audioCtx.resume().catch(() => { });
 
       const resumeContext = () => {
         if (audioCtx && audioCtx.state === 'suspended') {
@@ -2263,7 +2328,7 @@ function setupAudioLevelMeter(stream) {
       lastDrawTime = timestamp - (elapsed % fpsInterval);
 
       analyserNode.getByteTimeDomainData(dataArray);
-      
+
       let sum = 0;
       let peak = 0;
       for (let i = 0; i < bufferLength; i++) {
@@ -2273,11 +2338,11 @@ function setupAudioLevelMeter(stream) {
         sum += sample * sample;
       }
       const rms = Math.sqrt(sum / bufferLength);
-      
+
       // Music dynamic range dBFS mapping (-48 dBFS to 0 dBFS)
       const db = rms > 0.0001 ? 20 * Math.log10(rms) : -60;
       const percent = Math.min(100, Math.max(0, Math.round(((db + 48) / 48) * 100)));
-      
+
       // True peak clipping threshold (>= -0.2 dBFS is ~0.98)
       const isClipping = peak >= 0.98;
       updateAudioMeterUI(percent, isClipping);
@@ -2297,13 +2362,13 @@ function cleanupAudioLevelMeter() {
   if (audioSourceNode) {
     try {
       audioSourceNode.disconnect();
-    } catch (e) {}
+    } catch (e) { }
     audioSourceNode = null;
   }
   if (gainNode) {
     try {
       gainNode.disconnect();
-    } catch (e) {}
+    } catch (e) { }
     gainNode = null;
   }
   if (clipTimeoutId) {
@@ -2319,7 +2384,7 @@ function updateAudioMeterUI(percent, isClipping = false) {
   if (!bar) return;
 
   bar.style.width = `${percent}%`;
-  
+
   // Transition styles for material design
   if (percent < 70) {
     bar.style.backgroundColor = 'var(--success-color, #10b981)';

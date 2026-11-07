@@ -6,8 +6,10 @@ An offline-first practice tool designed to help musicians record practice sessio
 
 ## Key Features
 
-- **Latency-Free Visual Feedback:** Mirror mode allows real-time study of bow positioning, hand placement, and embouchure.
-- **Local Video Recording:** Capture practice sessions directly in your browser. All processing is done locally via client-side WebAssembly (FFmpeg).
+- **Latency-Free Visual Feedback:** Mirror mode allows real-time study of bow positioning, hand placement, and embouchure. Toggle instantly via the header mirror button, Settings, or press `M`.
+- **Local Video Recording & Crisp Export:** Capture practice sessions directly in your browser. All editing and transcoding is done locally via client-side WebAssembly (FFmpeg) with YouTube and DaVinci Resolve optimizations:
+  - **High Quality Transcode (Default):** Visually lossless CRF 16 1080p MP4 with closed 1-second keyframes (`-g 30`), BT.709 colorimetry, and `+faststart` MOOV atom so YouTube and NLEs ingest razor-sharp video.
+  - **Fast Remux Mode:** Optional stream-copy for instant container repackaging when untrimmed.
 - **YouTube Archiving:** Sign in via Google OAuth to upload recordings straight to your YouTube channel as private/unlisted videos.
 - **Offline First (PWA):** Once loaded, the application operates fully offline, making it reliable in music rehearsal rooms without internet.
 

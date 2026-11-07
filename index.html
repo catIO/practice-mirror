@@ -33,14 +33,26 @@
         </svg>
         <h1>Practice Mirror</h1>
       </div>
-      <button id="settings-btn" class="icon-btn" aria-label="Settings">
-        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
-          stroke-linejoin="round" viewBox="0 0 24 24">
-          <circle cx="12" cy="12" r="3" />
-          <path
-            d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
-        </svg>
-      </button>
+      <div class="header-actions">
+        <button id="mirror-btn" class="icon-btn" aria-label="Mirror view (M)" title="Mirror view (M)" aria-pressed="false">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="m3 7 5 5-5 5V7z" />
+            <path d="m21 7-5 5 5 5V7z" />
+            <path d="M12 20v2" />
+            <path d="M12 14v2" />
+            <path d="M12 8v2" />
+            <path d="M12 2v2" />
+          </svg>
+        </button>
+        <button id="settings-btn" class="icon-btn" aria-label="Settings">
+          <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round" viewBox="0 0 24 24">
+            <circle cx="12" cy="12" r="3" />
+            <path
+              d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-2 2 2 2 0 01-2-2v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83 0 2 2 0 010-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 01-2-2 2 2 0 012-2h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 010-2.83 2 2 0 012.83 0l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 012-2 2 2 0 012 2v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 0 2 2 0 010 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 012 2 2 2 0 01-2 2h-.09a1.65 1.65 0 00-1.51 1z" />
+          </svg>
+        </button>
+      </div>
     </header>
 
     <main class="viewport-section">
@@ -336,7 +348,30 @@
               </div>
             </div>
           </div>
-          <p class="setting-hint">MP4 with 320k AAC is ready for DaVinci Resolve, Premiere Pro &amp; YouTube.</p>
+
+          <div class="setting-group">
+            <label for="export-mode-select">Export &amp; Transcode Quality</label>
+            <div class="select-wrapper">
+              <select id="export-mode-select" aria-label="Select Export and Transcode Quality">
+                <option value="quality" selected>High Quality (Recommended for YouTube &amp; DaVinci)</option>
+                <option value="fast">Fast Remux (Stream copy when untrimmed)</option>
+              </select>
+              <svg class="drop-icon" width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                <path d="M6 9l6 6 6-6" />
+              </svg>
+            </div>
+            <p class="setting-hint">High Quality enforces closed 1s keyframes, BT.709 color &amp; CRF 16 for razor-sharp YouTube uploads.</p>
+          </div>
+          <div class="setting-group toggle-group">
+            <div>
+              <label for="mirror-switch">Mirror Video</label>
+              <p class="setting-hint" style="margin: 2px 0 0 0;">Flip video preview &amp; playback horizontally like a mirror.</p>
+            </div>
+            <label class="switch">
+              <input type="checkbox" id="mirror-switch" aria-label="Mirror Video">
+              <span class="slider round"></span>
+            </label>
+          </div>
         </section>
 
         <!-- Section 3: YouTube Account -->
